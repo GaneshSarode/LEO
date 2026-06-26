@@ -37,6 +37,16 @@ export async function POST(req) {
         userMessage = `User Message: ${payload.message}\nContext Tasks: ${JSON.stringify(payload.tasks)}`;
         break;
 
+      case 'briefing':
+        systemPrompt = `You are LEO, a proactive productivity coach. The user is a ${payload.userProfile?.role || 'user'}. Review their tasks and provide a short (2-3 sentences max) daily briefing. Start by saying 'Good morning ${payload.userProfile?.name || 'there'}!' or similar. State exactly what they should focus on first based on deadlines. Keep it highly actionable and direct.`;
+        userMessage = `Tasks: ${JSON.stringify(payload.tasks || [])}`;
+        break;
+
+      case 'autonomous_plan':
+        systemPrompt = `You are an autonomous AI planner. The user needs to accomplish: ${payload.title} by ${payload.deadline || 'None'}. Break this down into exactly 3-5 subtasks. Return ONLY a valid JSON array of objects with format: [{ "title": "subtask name" }]. Do not include markdown formatting or explanation.`;
+        userMessage = `Task: ${payload.title}\nDeadline: ${payload.deadline || 'None'}`;
+        break;
+
       default:
         return new Response(JSON.stringify({ error: 'Invalid action' }), {
           status: 400,
@@ -105,7 +115,7 @@ export async function POST(req) {
     if (text.startsWith('```')) text = text.replace(/^```\n/, '');
     if (text.endsWith('```')) text = text.replace(/\n```$/, '');
 
-    if (action !== 'coach') {
+    if (action !== 'coach' && action !== 'briefing') {
       try {
         const parsed = JSON.parse(text);
         return new Response(JSON.stringify(parsed), {
@@ -128,7 +138,7 @@ export async function POST(req) {
     console.error('Gemini API Error:', error);
     
     // Fallback logic
-    if (action === 'breakdown') {
+    if (action === 'breakdown' || action === 'autonomous_plan') {
       const fallbackSubtasks = [
         { id: "1", title: "Research and plan the task", completed: false },
         { id: "2", title: "Work on the first draft or implementation", completed: false },

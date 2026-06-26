@@ -11,6 +11,7 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
   });
   const [deadlineDate, setDeadlineDate] = useState('');
   const [deadlineTime, setDeadlineTime] = useState('');
+  const [isPlanning, setIsPlanning] = useState(false);
 
   useEffect(() => {
     if (editTask) {
@@ -40,6 +41,61 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
   }, [editTask, show, initialTitle]);
 
   if (!show) return null;
+
+  const handleAutoPlan = async () => {
+    if (!formData.title) {
+      alert('Please enter a title first.');
+      return;
+    }
+    setIsPlanning(true);
+    try {
+      let finalDeadline = null;
+      if (deadlineDate) {
+        const t = deadlineTime || '23:59';
+        finalDeadline = new Date(`${deadlineDate}T${t}`).getTime();
+      }
+
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'autonomous_plan',
+          payload: { title: formData.title, deadline: finalDeadline }
+        })
+      });
+      const data = await res.json();
+      
+      let subtasks = [];
+      if (Array.isArray(data)) {
+        subtasks = data.map((st, idx) => ({
+          id: Date.now().toString() + idx,
+          title: st.title,
+          completed: false
+        }));
+      }
+
+      if (editTask) {
+        await updateTask(editTask.id, {
+          ...formData,
+          deadline: finalDeadline,
+          subtasks
+        });
+      } else {
+        await addTask({
+          ...formData,
+          deadline: finalDeadline,
+          completed: false,
+          subtasks,
+        });
+      }
+      onSave();
+      onClose();
+    } catch (e) {
+      console.error("Auto plan error:", e);
+    } finally {
+      setIsPlanning(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -133,9 +189,20 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
               />
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary">Save Task</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+            <button 
+              type="button" 
+              className="btn-ghost" 
+              onClick={handleAutoPlan} 
+              disabled={isPlanning || !formData.title}
+              style={{ color: 'var(--accent-primary)', borderColor: 'var(--accent-primary)' }}
+            >
+              {isPlanning ? '⏳ Planning...' : '✨ Let LEO Plan This'}
+            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" className="btn-ghost" onClick={onClose} disabled={isPlanning}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={isPlanning}>Save Task</button>
+            </div>
           </div>
         </form>
       </div>

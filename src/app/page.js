@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LayoutDashboard, ListTodo, Calendar, Bot } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import TaskList from './components/TaskList';
@@ -10,6 +10,29 @@ import ReminderEngine from './components/ReminderEngine';
 
 export default function Home() {
   const [activeView, setActiveView] = useState('dashboard');
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const profile = localStorage.getItem('leo_user_profile');
+    if (profile) {
+      try {
+        setUserProfile(JSON.parse(profile));
+      } catch (e) {
+        console.error('Failed to parse user profile', e);
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>Loading...</div>;
+
+  if (!userProfile) {
+    return <OnboardingScreen onComplete={(profile) => {
+      localStorage.setItem('leo_user_profile', JSON.stringify(profile));
+      setUserProfile(profile);
+    }} />;
+  }
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -85,12 +108,62 @@ export default function Home() {
 
       {/* Main Content Area */}
       <main style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-primary)' }}>
-        {activeView === 'dashboard' && <Dashboard onNavigate={setActiveView} />}
+        {activeView === 'dashboard' && <Dashboard onNavigate={setActiveView} userProfile={userProfile} />}
         {activeView === 'tasks' && <TaskList />}
         {activeView === 'schedule' && <ScheduleView />}
-        {activeView === 'coach' && <AIChat />}
+        {activeView === 'coach' && <AIChat userProfile={userProfile} />}
       </main>
 
+    </div>
+  );
+}
+
+function OnboardingScreen({ onComplete }) {
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('student');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (name.trim()) {
+      onComplete({ name: name.trim(), role });
+    }
+  };
+
+  return (
+    <div style={{ height: '100vh', width: '100vw', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+        <h1 className="font-heading" style={{ fontSize: '32px', color: 'var(--accent-primary)', marginBottom: '8px' }}>Welcome to LEO</h1>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>Your Last-minute Execution Officer.</p>
+        
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>What should I call you?</label>
+            <input 
+              type="text" 
+              required
+              placeholder="e.g. Alex"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>What best describes you?</label>
+            <select 
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
+            >
+              <option value="student">Student</option>
+              <option value="professional">Professional</option>
+              <option value="entrepreneur">Entrepreneur</option>
+            </select>
+          </div>
+          <button type="submit" className="btn-primary" style={{ padding: '12px', marginTop: '12px', fontSize: '16px' }}>
+            Get Started
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

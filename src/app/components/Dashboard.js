@@ -6,10 +6,13 @@ import { getProductivityStats, calculatePriorityScore } from '@/lib/taskEngine';
 import TaskModal from './TaskModal';
 import VoiceButton from './VoiceButton';
 
-export default function Dashboard({ onNavigate }) {
+export default function Dashboard({ onNavigate, userProfile }) {
   const [tasks, setTasks] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState('');
+  const [dailyBriefing, setDailyBriefing] = useState('');
+  const [loadingBriefing, setLoadingBriefing] = useState(false);
+  const briefingFetched = require('react').useRef(false);
 
   const fetchTasks = async () => {
     const data = await getTasks();
@@ -19,6 +22,27 @@ export default function Dashboard({ onNavigate }) {
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  useEffect(() => {
+    if (tasks.length > 0 && userProfile && !briefingFetched.current) {
+      briefingFetched.current = true;
+      setLoadingBriefing(true);
+      fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'briefing',
+          payload: { tasks, userProfile }
+        })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.result) setDailyBriefing(data.result);
+      })
+      .catch(e => console.error("Error fetching briefing", e))
+      .finally(() => setLoadingBriefing(false));
+    }
+  }, [tasks, userProfile]);
 
   const todayDate = new Date();
   const todayEnd = new Date();
@@ -58,11 +82,27 @@ export default function Dashboard({ onNavigate }) {
   return (
     <div style={{ padding: '32px', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px', minHeight: '100%' }}>
       <header>
-        <h1 className="font-heading" style={{ fontSize: '32px', marginBottom: '8px' }}>{greeting}, Ganesh</h1>
+        <h1 className="font-heading" style={{ fontSize: '32px', marginBottom: '8px' }}>{greeting}, {userProfile?.name || 'User'}</h1>
         <p className="font-heading" style={{ color: 'var(--text-secondary)', fontSize: '18px' }}>
           {todayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
         </p>
       </header>
+
+      {/* LEO's Daily Briefing Card */}
+      <div className="card" style={{ background: 'var(--bg-elevated)', borderLeft: '4px solid var(--accent-primary)', padding: '24px' }}>
+        <h2 className="font-heading" style={{ fontSize: '18px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-primary)' }}>
+          <span style={{ fontSize: '20px' }}>🤖</span> LEO's Daily Briefing
+        </h2>
+        {loadingBriefing ? (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-secondary)' }}>
+            <span style={{ animation: 'pulse 1s infinite' }}>Analyzing workload...</span>
+          </div>
+        ) : (
+          <p style={{ color: 'var(--text-primary)', lineHeight: '1.6', fontSize: '15px', margin: 0 }}>
+            {dailyBriefing || "No briefing available right now. Add some tasks to get started!"}
+          </p>
+        )}
+      </div>
 
       {/* Stats Row — 4 cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>

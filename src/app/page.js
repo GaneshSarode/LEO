@@ -78,7 +78,7 @@ export default function Home() {
         {/* Sidebar Footer */}
         <div style={{ marginTop: 'auto', padding: '16px 0', borderTop: '1px solid var(--border)' }}>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
-            Powered by Gemini AI
+            Hi Learners
           </p>
         </div>
       </aside>

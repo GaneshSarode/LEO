@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
+import VoiceButton from './VoiceButton';
 
 export default function AIChat() {
   const [messages, setMessages] = useState([
@@ -117,7 +118,7 @@ export default function AIChat() {
       </div>
 
       <div style={{ padding: '24px', borderTop: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <input 
             type="text" 
             placeholder="Ask LEO..." 
@@ -126,6 +127,7 @@ export default function AIChat() {
             onKeyDown={(e) => { if (e.key === 'Enter') handleSend(input); }}
             style={{ flex: 1, padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
           />
+          <VoiceButton onTranscript={(text) => { setInput(text); }} />
           <button className="btn-primary" onClick={() => handleSend(input)} disabled={loading}>Send</button>
         </div>
       </div>

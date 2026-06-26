@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getTasks, deleteTask, updateTask } from '@/lib/firebase';
+import { calculatePriorityScore, sortByPriority } from '@/lib/taskEngine';
 import TaskCard from './TaskCard';
 import TaskModal from './TaskModal';
 
@@ -11,10 +12,17 @@ export default function TaskList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editTaskData, setEditTaskData] = useState(null);
+  const [reprioritizing, setReprioritizing] = useState(false);
+  const [aiReasoning, setAiReasoning] = useState('');
 
   const fetchTasks = async () => {
     const data = await getTasks();
-    setTasks(data);
+    // Attach live priority scores
+    const scored = data.map(t => ({
+      ...t,
+      priorityScore: calculatePriorityScore(t)
+    }));
+    setTasks(scored);
   };
 
   useEffect(() => {
@@ -27,7 +35,7 @@ export default function TaskList() {
   };
 
   const handleToggleComplete = async (task) => {
-    await updateTask(task.id, { completed: !task.completed });
+    await updateTask(task.id, { completed: !task.completed, completedAt: !task.completed ? Date.now() : null });
     fetchTasks();
   };
 
@@ -38,6 +46,48 @@ export default function TaskList() {
 
   const handleBreakdownRefresh = () => {
     fetchTasks();
+  };
+
+  const handleReprioritize = async () => {
+    setReprioritizing(true);
+    setAiReasoning('');
+    try {
+      const incompleteTasks = tasks.filter(t => !t.completed);
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'prioritize',
+          payload: { tasks: incompleteTasks.map(t => ({ id: t.id, title: t.title, deadline: t.deadline, priority: t.priority })) }
+        })
+      });
+      const data = await res.json();
+      
+      if (data.result && typeof data.result === 'string') {
+        setAiReasoning(data.result);
+      } else if (Array.isArray(data)) {
+        // AI returned ordered IDs — reorder tasks
+        const orderedIds = data;
+        const reordered = [];
+        orderedIds.forEach(id => {
+          const found = tasks.find(t => t.id === id);
+          if (found) reordered.push(found);
+        });
+        // Append any tasks not in the AI's list
+        tasks.forEach(t => {
+          if (!reordered.find(r => r.id === t.id)) reordered.push(t);
+        });
+        setTasks(reordered);
+        setAiReasoning('✅ Tasks re-ordered by AI based on urgency and importance.');
+      }
+    } catch (error) {
+      console.error('Reprioritize error:', error);
+      // Fallback: sort by local score
+      setTasks(prev => sortByPriority(prev));
+      setAiReasoning('Sorted by LEO\'s priority engine (deadline proximity + urgency).');
+    } finally {
+      setReprioritizing(false);
+    }
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -58,13 +108,41 @@ export default function TaskList() {
   return (
     <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', position: 'relative', minHeight: '100%' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-        <input 
-          type="text" 
-          placeholder="Search tasks..." 
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
-        />
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <input 
+            type="text" 
+            placeholder="Search tasks..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
+          />
+          <button
+            className="btn-ghost"
+            onClick={handleReprioritize}
+            disabled={reprioritizing}
+            style={{ whiteSpace: 'nowrap', padding: '10px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            {reprioritizing ? '⏳ Analyzing...' : '🧠 Re-prioritize with AI'}
+          </button>
+        </div>
+
+        {aiReasoning && (
+          <div style={{ 
+            padding: '12px 16px', 
+            borderRadius: '8px', 
+            background: 'rgba(99, 102, 241, 0.1)', 
+            border: '1px solid var(--accent-primary)',
+            color: 'var(--text-secondary)',
+            fontSize: '13px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>{aiReasoning}</span>
+            <button onClick={() => setAiReasoning('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: '8px' }}>
           {['all', 'today', 'overdue', 'completed'].map(f => (
             <button 

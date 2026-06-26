@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { getTasks } from '@/lib/firebase';
+import { getProductivityStats, calculatePriorityScore } from '@/lib/taskEngine';
 import TaskModal from './TaskModal';
+import VoiceButton from './VoiceButton';
 
-export default function Dashboard() {
+export default function Dashboard({ onNavigate }) {
   const [tasks, setTasks] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState('');
@@ -23,9 +25,12 @@ export default function Dashboard() {
   todayEnd.setHours(23, 59, 59, 999);
   const now = Date.now();
 
+  // Use taskEngine stats
+  const stats = getProductivityStats(tasks);
+
   const dueTodayCount = tasks.filter(t => !t.completed && t.deadline && t.deadline <= todayEnd.getTime() && t.deadline > now).length;
-  const overdueCount = tasks.filter(t => !t.completed && t.deadline && t.deadline < now).length;
-  const completedCount = tasks.filter(t => t.completed).length;
+  const overdueCount = stats.overdue;
+  const completedCount = stats.completed;
 
   const upcomingTasks = tasks
     .filter(t => !t.completed && t.deadline)
@@ -46,43 +51,85 @@ export default function Dashboard() {
     return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  // Greeting based on time of day
+  const hour = todayDate.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
   return (
     <div style={{ padding: '32px', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px', minHeight: '100%' }}>
       <header>
-        <h1 className="font-heading" style={{ fontSize: '32px', marginBottom: '8px' }}>Good morning, Ganesh</h1>
+        <h1 className="font-heading" style={{ fontSize: '32px', marginBottom: '8px' }}>{greeting}, Ganesh</h1>
         <p className="font-heading" style={{ color: 'var(--text-secondary)', fontSize: '18px' }}>
           {todayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
         </p>
       </header>
 
-      <div style={{ display: 'flex', gap: '16px' }}>
-        <div className="card" style={{ flex: 1, textAlign: 'center' }}>
+      {/* Stats Row — 4 cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        <div className="card" style={{ textAlign: 'center' }}>
           <h3 className="font-heading" style={{ fontSize: '36px', color: 'var(--accent-primary)', marginBottom: '4px' }}>{dueTodayCount}</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Due Today</p>
         </div>
-        <div className="card" style={{ flex: 1, textAlign: 'center' }}>
+        <div className="card" style={{ textAlign: 'center' }}>
           <h3 className="font-heading" style={{ fontSize: '36px', color: 'var(--accent-danger)', marginBottom: '4px' }}>{overdueCount}</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Overdue</p>
         </div>
-        <div className="card" style={{ flex: 1, textAlign: 'center' }}>
+        <div className="card" style={{ textAlign: 'center' }}>
           <h3 className="font-heading" style={{ fontSize: '36px', color: 'var(--accent-success)', marginBottom: '4px' }}>{completedCount}</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Completed</p>
         </div>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <h3 className="font-heading" style={{ fontSize: '36px', color: 'var(--accent-warning)', marginBottom: '4px' }}>🔥 {stats.streak}</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Day Streak</p>
+        </div>
       </div>
 
+      {/* Completion Rate Bar */}
+      {stats.total > 0 && (
+        <div className="card" style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Completion Rate</span>
+            <span className="font-mono" style={{ fontSize: '14px', color: 'var(--accent-success)' }}>{stats.completionRate}%</span>
+          </div>
+          <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--bg-elevated)', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${stats.completionRate}%`, backgroundColor: 'var(--accent-success)', borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
+          </div>
+        </div>
+      )}
+
+      {/* Plan My Day Button */}
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <button 
+          className="btn-primary" 
+          style={{ flex: 1, padding: '14px', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          onClick={() => onNavigate && onNavigate('schedule')}
+        >
+          📋 Plan My Day
+        </button>
+        <button 
+          className="btn-ghost" 
+          style={{ flex: 1, padding: '14px', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          onClick={() => onNavigate && onNavigate('coach')}
+        >
+          🤖 Ask LEO
+        </button>
+      </div>
+
+      {/* Upcoming Deadlines */}
       <section>
         <h2 className="font-heading" style={{ fontSize: '20px', marginBottom: '16px' }}>Upcoming Deadlines</h2>
         <div className="card" style={{ padding: '0' }}>
           {upcomingTasks.length === 0 ? (
-            <p style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No upcoming deadlines.</p>
+            <p style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No upcoming deadlines. You're all caught up! 🎉</p>
           ) : (
             upcomingTasks.map((task, i) => (
               <div key={task.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: i < upcomingTasks.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <div>
                   <h4 style={{ marginBottom: '4px' }}>{task.title}</h4>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{task.category}</span>
                     <span className={`badge badge-${task.priority}`} style={{ fontSize: '10px' }}>{task.priority}</span>
+                    <span className="font-mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Score: {calculatePriorityScore(task)}</span>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -95,7 +142,8 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <div style={{ marginTop: 'auto', display: 'flex', gap: '12px' }}>
+      {/* Quick Add Bar with Voice */}
+      <div style={{ marginTop: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>
         <input 
           type="text" 
           placeholder="Add a task..." 
@@ -106,6 +154,7 @@ export default function Dashboard() {
             if (e.key === 'Enter' && quickAddTitle.trim() !== '') setShowModal(true);
           }}
         />
+        <VoiceButton onTranscript={(text) => setQuickAddTitle(text)} />
         <button className="btn-primary" onClick={() => quickAddTitle.trim() !== '' && setShowModal(true)}>Add</button>
       </div>
 

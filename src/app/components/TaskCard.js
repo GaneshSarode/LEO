@@ -2,9 +2,13 @@
 
 import { useState } from 'react';
 import { updateTask } from '@/lib/firebase';
+import { calculatePriorityScore } from '@/lib/taskEngine';
+import { generateICSFile } from '@/lib/generateICS';
 
 export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onBreakdown }) {
   const [isBreakingDown, setIsBreakingDown] = useState(false);
+
+  const priorityScore = task.priorityScore || calculatePriorityScore(task);
 
   const getCountdown = (deadlineTime) => {
     if (!deadlineTime) return null;
@@ -20,6 +24,13 @@ export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onB
     } else {
       return <span style={{ color: 'var(--accent-warning)' }} className="font-mono">{hours} hours left</span>;
     }
+  };
+
+  const getScoreColor = (score) => {
+    if (score >= 80) return 'var(--accent-danger)';
+    if (score >= 60) return 'var(--accent-warning)';
+    if (score >= 40) return 'var(--accent-primary)';
+    return 'var(--text-muted)';
   };
 
   const handleBreakdown = async () => {
@@ -62,11 +73,30 @@ export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onB
         style={{ marginTop: '4px', width: '20px', height: '20px', cursor: 'pointer' }}
       />
       <div style={{ flex: 1 }}>
-        <h3 style={{ textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? 'var(--text-secondary)' : 'var(--text-primary)', marginBottom: '8px' }}>
-          {task.title}
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+          <h3 style={{ textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? 'var(--text-secondary)' : 'var(--text-primary)', margin: 0, flex: 1 }}>
+            {task.title}
+          </h3>
+          {/* Priority Score Badge */}
+          <span 
+            className="font-mono"
+            style={{ 
+              fontSize: '11px', 
+              fontWeight: 700, 
+              color: getScoreColor(priorityScore),
+              backgroundColor: 'var(--bg-primary)',
+              border: `1px solid ${getScoreColor(priorityScore)}`,
+              borderRadius: '6px',
+              padding: '2px 6px',
+              minWidth: '32px',
+              textAlign: 'center'
+            }}
+          >
+            {priorityScore}
+          </span>
+        </div>
         
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border)', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
             {task.category}
           </span>
@@ -92,12 +122,17 @@ export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onB
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={handleBreakdown} disabled={isBreakingDown}>
-            {isBreakingDown ? 'Breaking down...' : 'Break it down'}
+            {isBreakingDown ? '⏳ Breaking down...' : '🔨 Break it down'}
           </button>
-          <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => onEdit(task)}>Edit</button>
-          <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px', color: 'var(--accent-danger)', borderColor: 'transparent' }} onClick={() => onDelete(task.id)}>Delete</button>
+          {task.deadline && (
+            <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => generateICSFile(task)}>
+              📅 Add to Calendar
+            </button>
+          )}
+          <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => onEdit(task)}>✏️ Edit</button>
+          <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px', color: 'var(--accent-danger)', borderColor: 'transparent' }} onClick={() => onDelete(task.id)}>🗑 Delete</button>
         </div>
       </div>
     </div>

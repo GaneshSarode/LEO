@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
+import ReactMarkdown from 'react-markdown';
 
 export default function AIChat() {
   const [messages, setMessages] = useState([
@@ -84,9 +85,15 @@ export default function AIChat() {
               backgroundColor: msg.role === 'user' ? 'var(--accent-primary)' : 'var(--bg-elevated)',
               color: msg.role === 'user' ? '#fff' : 'var(--text-primary)',
               lineHeight: '1.5',
-              whiteSpace: 'pre-wrap'
+              whiteSpace: msg.role === 'user' ? 'pre-wrap' : 'normal'
             }}>
-              {msg.content}
+              {msg.role === 'user' ? (
+                msg.content
+              ) : (
+                <div className="markdown-body">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         ))}

@@ -119,3 +119,17 @@ h1, h2, h3, h4, h5, h6, .font-heading {
 a, button, input, select, textarea {
   transition: all 0.2s ease;
 }
+
+/* Markdown Rendering */
+.markdown-body strong {
+  color: white;
+}
+.markdown-body ul, .markdown-body ol {
+  margin-left: 16px;
+}
+.markdown-body p {
+  margin-bottom: 8px;
+}
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}

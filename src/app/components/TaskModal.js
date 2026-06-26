@@ -11,13 +11,20 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
     deadline: ''
   });
 
+  const formatLocalDatetime = (timestamp) => {
+    if (!timestamp) return '';
+    const d = new Date(timestamp);
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   useEffect(() => {
     if (editTask) {
       setFormData({
         title: editTask.title || '',
         category: editTask.category || 'work',
         priority: editTask.priority || 'medium',
-        deadline: editTask.deadline ? new Date(editTask.deadline).toISOString().slice(0, 16) : ''
+        deadline: formatLocalDatetime(editTask.deadline)
       });
     } else {
       setFormData({

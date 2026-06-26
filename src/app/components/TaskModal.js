@@ -1,277 +1,118 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Plus, Trash2, Loader2 } from 'lucide-react';
-import { generateId } from '@/lib/utils';
-import { useAI } from '@/hooks/useAI';
+import { addTask, updateTask } from '@/lib/firebase';
 
-const CATEGORIES = [
-  { id: 'work', label: '💼 Work' },
-  { id: 'personal', label: '🏠 Personal' },
-  { id: 'health', label: '💪 Health' },
-  { id: 'learning', label: '📚 Learning' },
-  { id: 'finance', label: '💰 Finance' },
-  { id: 'other', label: '📌 Other' },
-];
-
-const PRIORITIES = [
-  { id: 'critical', label: 'Critical', color: 'var(--priority-critical)' },
-  { id: 'high', label: 'High', color: 'var(--priority-high)' },
-  { id: 'medium', label: 'Medium', color: 'var(--priority-medium)' },
-  { id: 'low', label: 'Low', color: 'var(--priority-low)' },
-];
-
-export default function TaskModal({ task, isOpen, onClose, onSave }) {
+export default function TaskModal({ show, onClose, onSave, editTask, initialTitle = '' }) {
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category: 'other',
+    title: initialTitle,
+    category: 'work',
     priority: 'medium',
-    deadline: '',
-    subtasks: [],
-    notes: '',
+    deadline: ''
   });
-  const [newSubtask, setNewSubtask] = useState('');
-  const { breakdownTask, loading: aiLoading } = useAI();
-
-  const isEditing = !!task;
 
   useEffect(() => {
-    if (task) {
+    if (editTask) {
       setFormData({
-        title: task.title || '',
-        description: task.description || '',
-        category: task.category || 'other',
-        priority: task.priority || 'medium',
-        deadline: task.deadline ? task.deadline.slice(0, 16) : '',
-        subtasks: task.subtasks || [],
-        notes: task.notes || '',
+        title: editTask.title || '',
+        category: editTask.category || 'work',
+        priority: editTask.priority || 'medium',
+        deadline: editTask.deadline ? new Date(editTask.deadline).toISOString().slice(0, 16) : ''
       });
     } else {
       setFormData({
-        title: '',
-        description: '',
-        category: 'other',
+        title: initialTitle || '',
+        category: 'work',
         priority: 'medium',
-        deadline: '',
-        subtasks: [],
-        notes: '',
+        deadline: ''
       });
     }
-  }, [task, isOpen]);
+  }, [editTask, show, initialTitle]);
 
-  if (!isOpen) return null;
+  if (!show) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.title.trim()) return;
-
-    onSave({
-      ...formData,
-      deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
-    });
-    onClose();
-  };
-
-  const handleAIBreakdown = async () => {
-    if (!formData.title.trim()) return;
-    const subtasks = await breakdownTask(formData.title, formData.description);
-    if (subtasks && Array.isArray(subtasks)) {
-      const newSubtasks = subtasks.map((st) => ({
-        id: generateId(),
-        title: st.title,
-        completed: false,
-        estimatedMinutes: st.estimatedMinutes || 30,
-      }));
-      setFormData((prev) => ({
-        ...prev,
-        subtasks: [...prev.subtasks, ...newSubtasks],
-      }));
+    try {
+      const deadlineDate = formData.deadline ? new Date(formData.deadline).getTime() : null;
+      if (editTask) {
+        await updateTask(editTask.id, {
+          ...formData,
+          deadline: deadlineDate
+        });
+      } else {
+        await addTask({
+          ...formData,
+          deadline: deadlineDate,
+          completed: false,
+          subtasks: [],
+        });
+      }
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error("Error saving task:", error);
     }
-  };
-
-  const addSubtask = () => {
-    if (!newSubtask.trim()) return;
-    setFormData((prev) => ({
-      ...prev,
-      subtasks: [
-        ...prev.subtasks,
-        { id: generateId(), title: newSubtask.trim(), completed: false },
-      ],
-    }));
-    setNewSubtask('');
-  };
-
-  const removeSubtask = (id) => {
-    setFormData((prev) => ({
-      ...prev,
-      subtasks: prev.subtasks.filter((st) => st.id !== id),
-    }));
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') onClose();
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose} onKeyDown={handleKeyDown}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{isEditing ? 'Edit Task' : 'New Task'}</h2>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
-            {/* Title */}
-            <div className="form-group">
-              <label className="form-label">Title</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="What needs to be done?"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                autoFocus
-                required
-              />
-            </div>
-
-            {/* Description */}
-            <div className="form-group">
-              <label className="form-label">Description (optional)</label>
-              <textarea
-                className="textarea"
-                placeholder="Add more details..."
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-              />
-            </div>
-
-            {/* Category & Priority Row */}
-            <div className="form-row">
-              <div className="form-group form-group-half">
-                <label className="form-label">Category</label>
-                <select
-                  className="select"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                >
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group form-group-half">
-                <label className="form-label">Priority</label>
-                <div className="priority-selector">
-                  {PRIORITIES.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className={`priority-option ${formData.priority === p.id ? 'priority-option-active' : ''}`}
-                      style={{ '--priority-color': p.color }}
-                      onClick={() => setFormData({ ...formData, priority: p.id })}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Deadline */}
-            <div className="form-group">
-              <label className="form-label">Deadline</label>
-              <input
-                type="datetime-local"
-                className="input"
-                value={formData.deadline}
-                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-              />
-            </div>
-
-            {/* Subtasks */}
-            <div className="form-group">
-              <div className="form-label-row">
-                <label className="form-label">Subtasks</label>
-                <button
-                  type="button"
-                  className="btn btn-ai btn-sm"
-                  onClick={handleAIBreakdown}
-                  disabled={aiLoading || !formData.title.trim()}
-                >
-                  {aiLoading ? (
-                    <>
-                      <Loader2 size={14} className="spin" /> Breaking down...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={14} /> AI Break Down
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {formData.subtasks.length > 0 && (
-                <div className="subtask-list">
-                  {formData.subtasks.map((st) => (
-                    <div key={st.id} className="subtask-item subtask-item-editable">
-                      <span className="subtask-title">{st.title}</span>
-                      {st.estimatedMinutes && (
-                        <span className="text-muted text-sm">{st.estimatedMinutes}m</span>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-icon btn-danger-hover"
-                        onClick={() => removeSubtask(st.id)}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="subtask-add">
-                <input
-                  type="text"
-                  className="input input-sm"
-                  placeholder="Add a subtask..."
-                  value={newSubtask}
-                  onChange={(e) => setNewSubtask(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addSubtask();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={addSubtask}
-                  disabled={!newSubtask.trim()}
-                >
-                  <Plus size={14} />
-                </button>
-              </div>
-            </div>
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex',
+      justifyContent: 'center', alignItems: 'center', zIndex: 1000
+    }}>
+      <div className="card" style={{ width: '100%', maxWidth: '480px' }}>
+        <h2 className="font-heading" style={{ marginBottom: '16px' }}>
+          {editTask ? 'Edit Task' : 'New Task'}
+        </h2>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Title</label>
+            <input 
+              type="text" 
+              required
+              value={formData.title}
+              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+            />
           </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={!formData.title.trim()}>
-              {isEditing ? 'Save Changes' : 'Create Task'}
-            </button>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Category</label>
+            <select 
+              value={formData.category}
+              onChange={(e) => setFormData({...formData, category: e.target.value})}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+            >
+              <option value="work">Work</option>
+              <option value="study">Study</option>
+              <option value="personal">Personal</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Priority</label>
+            <select 
+              value={formData.priority}
+              onChange={(e) => setFormData({...formData, priority: e.target.value})}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+            >
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Deadline</label>
+            <input 
+              type="datetime-local" 
+              value={formData.deadline}
+              onChange={(e) => setFormData({...formData, deadline: e.target.value})}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary">Save Task</button>
           </div>
         </form>
       </div>

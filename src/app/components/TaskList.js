@@ -1,141 +1,115 @@
 'use client';
 
-import { Plus, SlidersHorizontal, Sparkles, ArrowUpDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { getTasks, deleteTask, updateTask } from '@/lib/firebase';
 import TaskCard from './TaskCard';
+import TaskModal from './TaskModal';
 
-const FILTER_TABS = [
-  { id: 'all', label: 'All' },
-  { id: 'active', label: 'Active' },
-  { id: 'completed', label: 'Done' },
-  { id: 'overdue', label: 'Overdue' },
-];
+export default function TaskList() {
+  const [tasks, setTasks] = useState([]);
+  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editTaskData, setEditTaskData] = useState(null);
 
-const CATEGORY_TABS = [
-  { id: 'all', label: 'All' },
-  { id: 'work', label: '💼 Work' },
-  { id: 'personal', label: '🏠 Personal' },
-  { id: 'health', label: '💪 Health' },
-  { id: 'learning', label: '📚 Learning' },
-  { id: 'finance', label: '💰 Finance' },
-  { id: 'other', label: '📌 Other' },
-];
+  const fetchTasks = async () => {
+    const data = await getTasks();
+    setTasks(data);
+  };
 
-const SORT_OPTIONS = [
-  { id: 'priority', label: 'Priority' },
-  { id: 'deadline', label: 'Deadline' },
-  { id: 'created', label: 'Newest' },
-];
+  useEffect(() => {
+    fetchTasks();
+  }, []);
 
-export default function TaskList({
-  tasks,
-  filter,
-  onFilterChange,
-  categoryFilter,
-  onCategoryFilterChange,
-  sortBy,
-  onSortChange,
-  onToggle,
-  onEdit,
-  onDelete,
-  onToggleSubtask,
-  onAddTask,
-  onAIPrioritize,
-  aiLoading,
-}) {
+  const handleDelete = async (taskId) => {
+    await deleteTask(taskId);
+    fetchTasks();
+  };
+
+  const handleToggleComplete = async (task) => {
+    await updateTask(task.id, { completed: !task.completed });
+    fetchTasks();
+  };
+
+  const handleEdit = (task) => {
+    setEditTaskData(task);
+    setShowModal(true);
+  };
+
+  const handleBreakdownRefresh = () => {
+    fetchTasks();
+  };
+
+  const filteredTasks = tasks.filter(task => {
+    if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    const now = Date.now();
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    if (filter === 'completed') return task.completed;
+    if (filter === 'overdue') return !task.completed && task.deadline && task.deadline < now;
+    if (filter === 'today') return !task.completed && task.deadline && task.deadline <= todayEnd.getTime() && task.deadline >= now;
+    
+    return true;
+  });
+
   return (
-    <div className="task-list-container">
-      {/* Toolbar */}
-      <div className="task-list-toolbar">
-        <div className="task-list-toolbar-left">
-          <h2 className="task-list-title">Tasks</h2>
-          <div className="filter-tabs">
-            {FILTER_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                className={`filter-tab ${filter === tab.id ? 'filter-tab-active' : ''}`}
-                onClick={() => onFilterChange(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="task-list-toolbar-right">
-          <button
-            className="btn btn-ai btn-sm"
-            onClick={onAIPrioritize}
-            disabled={aiLoading}
-            title="AI Auto-Prioritize"
-          >
-            <Sparkles size={14} />
-            {aiLoading ? 'Prioritizing...' : 'AI Prioritize'}
-          </button>
-          <div className="sort-dropdown">
-            <ArrowUpDown size={14} />
-            <select
-              value={sortBy}
-              onChange={(e) => onSortChange(e.target.value)}
-              className="sort-select"
+    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', position: 'relative', minHeight: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+        <input 
+          type="text" 
+          placeholder="Search tasks..." 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
+        />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {['all', 'today', 'overdue', 'completed'].map(f => (
+            <button 
+              key={f} 
+              onClick={() => setFilter(f)}
+              className={filter === f ? 'btn-primary' : 'btn-ghost'}
+              style={{ textTransform: 'capitalize', padding: '6px 12px', fontSize: '14px' }}
             >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              {f}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="category-tabs">
-        {CATEGORY_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            className={`filter-tab filter-tab-sm ${categoryFilter === tab.id ? 'filter-tab-active' : ''}`}
-            onClick={() => onCategoryFilterChange(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Task List */}
-      <div className="task-list">
-        {tasks.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">📋</div>
-            <h3>No tasks found</h3>
-            <p className="text-muted">
-              {filter !== 'all'
-                ? 'Try changing your filters'
-                : 'Click the button below to add your first task'}
-            </p>
-            {filter === 'all' && (
-              <button className="btn btn-primary" onClick={onAddTask}>
-                <Plus size={16} /> Add Task
-              </button>
-            )}
-          </div>
+      <div>
+        {filteredTasks.length === 0 ? (
+          <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '40px' }}>No tasks found.</p>
         ) : (
-          tasks.map((task, index) => (
-            <div key={task.id} className="task-card-wrapper" style={{ animationDelay: `${index * 0.05}s` }}>
-              <TaskCard
-                task={task}
-                onToggle={onToggle}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onToggleSubtask={onToggleSubtask}
-              />
-            </div>
+          filteredTasks.map(task => (
+            <TaskCard 
+              key={task.id} 
+              task={task} 
+              onDelete={handleDelete} 
+              onToggleComplete={handleToggleComplete} 
+              onEdit={handleEdit}
+              onBreakdown={handleBreakdownRefresh}
+            />
           ))
         )}
       </div>
 
-      {/* Floating Add Button */}
-      <button className="fab" onClick={onAddTask} title="Add new task">
-        <Plus size={24} />
+      <button 
+        className="btn-primary"
+        onClick={() => { setEditTaskData(null); setShowModal(true); }}
+        style={{ position: 'fixed', bottom: '32px', right: '32px', width: '56px', height: '56px', borderRadius: '28px', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+      >
+        +
       </button>
+
+      <TaskModal 
+        show={showModal} 
+        onClose={() => setShowModal(false)} 
+        onSave={fetchTasks} 
+        editTask={editTaskData} 
+      />
     </div>
   );
 }

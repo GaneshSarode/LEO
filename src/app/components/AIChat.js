@@ -1,195 +1,120 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { X, Send, Sparkles, Loader2, Zap, Calendar, Brain, RotateCcw } from 'lucide-react';
-import { useAI } from '@/hooks/useAI';
-import { getChatHistory, saveChatHistory } from '@/lib/storage';
-import { generateId } from '@/lib/utils';
+import { useState, useEffect, useRef } from 'react';
+import { getTasks } from '@/lib/firebase';
 
-const QUICK_ACTIONS = [
-  { label: '📋 Plan my day', message: 'Help me plan my day. Look at my tasks and create an optimal schedule.' },
-  { label: '🔥 What\'s urgent?', message: 'What tasks should I focus on right now? What\'s most urgent?' },
-  { label: '😰 I\'m overwhelmed', message: 'I\'m feeling overwhelmed with my tasks. Help me simplify and prioritize.' },
-  { label: '💡 Productivity tips', message: 'Give me 3 actionable productivity tips based on my current tasks.' },
-];
-
-export default function AIChat({ isOpen, onClose, tasks }) {
-  const [messages, setMessages] = useState([]);
+export default function AIChat() {
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: "Hey! I'm LEO, your AI deadline companion. I know all your tasks and deadlines. Ask me anything — or try: 'Plan my day', 'What should I work on now?', or 'I'm feeling overwhelmed'." }
+  ]);
   const [input, setInput] = useState('');
-  const { chatWithCoach, loading } = useAI();
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [tasks, setTasks] = useState([]);
+  const chatEndRef = useRef(null);
 
-  // Load chat history on mount
   useEffect(() => {
-    const history = getChatHistory();
-    if (history && history.length > 0) {
-      setMessages(history);
-    } else {
-      setMessages([
-        {
-          id: 'welcome',
-          sender: 'ai',
-          content: "Hey! I'm LEO, your AI productivity coach. 🚀\n\nI can help you plan your day, prioritize tasks, or just talk through what's on your plate. What would you like to do?",
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    }
+    const fetchTasks = async () => {
+      const data = await getTasks();
+      setTasks(data);
+    };
+    fetchTasks();
   }, []);
 
-  // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
 
-  // Focus input when opened
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 300);
-    }
-  }, [isOpen]);
-
-  // Save messages to localStorage
-  useEffect(() => {
-    if (messages.length > 1) {
-      saveChatHistory(messages.slice(-50)); // Keep last 50 messages
-    }
-  }, [messages]);
-
-  const sendMessage = async (text) => {
-    if (!text.trim() || loading) return;
-
-    const userMessage = {
-      id: generateId(),
-      sender: 'user',
-      content: text.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+  const handleSend = async (messageText) => {
+    if (!messageText.trim() || loading) return;
+    
+    const newMessages = [...messages, { role: 'user', content: messageText }];
+    setMessages(newMessages);
     setInput('');
+    setLoading(true);
 
-    const response = await chatWithCoach(text.trim(), messages, tasks);
-
-    const aiMessage = {
-      id: generateId(),
-      sender: 'ai',
-      content: response || "I'm having trouble connecting right now. Please check your Gemini API key in `.env.local` and try again.",
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, aiMessage]);
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    sendMessage(input);
-  };
-
-  const handleQuickAction = (action) => {
-    sendMessage(action.message);
-  };
-
-  const clearHistory = () => {
-    const welcomeMsg = {
-      id: 'welcome',
-      sender: 'ai',
-      content: "Chat cleared! How can I help you today? 🚀",
-      timestamp: new Date().toISOString(),
-    };
-    setMessages([welcomeMsg]);
-    saveChatHistory([welcomeMsg]);
+    try {
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'coach',
+          payload: {
+            message: messageText,
+            tasks: tasks
+          }
+        })
+      });
+      const data = await res.json();
+      setMessages([...newMessages, { role: 'assistant', content: data.result || "Sorry, I couldn't process that." }]);
+    } catch (error) {
+      console.error(error);
+      setMessages([...newMessages, { role: 'assistant', content: "Network error occurred." }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className={`chat-panel ${isOpen ? 'chat-panel-open' : ''}`}>
-      <div className="chat-panel-header">
-        <div className="chat-panel-title">
-          <div className="chat-panel-avatar">
-            <Zap size={18} />
-          </div>
-          <div>
-            <h3>LEO AI Coach</h3>
-            <span className="text-sm text-muted">Powered by Gemini</span>
-          </div>
-        </div>
-        <div className="chat-panel-actions">
-          <button className="btn btn-ghost btn-icon" onClick={clearHistory} title="Clear chat">
-            <RotateCcw size={16} />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', maxWidth: '800px', margin: '0 auto', background: 'var(--bg-primary)' }}>
+      <header style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--accent-success)' }}></div>
+        <h2 className="font-heading" style={{ fontSize: '20px', margin: 0 }}>LEO AI Coach</h2>
+      </header>
+
+      <div style={{ padding: '16px 24px', display: 'flex', gap: '8px', overflowX: 'auto', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        {["Plan my day", "Prioritize my tasks", "I'm overwhelmed"].map(btn => (
+          <button 
+            key={btn}
+            className="btn-ghost" 
+            style={{ fontSize: '12px', whiteSpace: 'nowrap', borderRadius: '16px' }}
+            onClick={() => handleSend(btn)}
+          >
+            {btn}
           </button>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} title="Close">
-            <X size={18} />
-          </button>
-        </div>
+        ))}
       </div>
 
-      <div className="chat-messages">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`chat-message ${msg.sender === 'user' ? 'chat-message-user' : 'chat-message-ai'}`}
-          >
-            <div className="chat-message-bubble">
-              {msg.content.split('\n').map((line, i) => (
-                <span key={i}>
-                  {line}
-                  {i < msg.content.split('\n').length - 1 && <br />}
-                </span>
-              ))}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {messages.map((msg, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{ 
+              maxWidth: '80%', 
+              padding: '12px 16px', 
+              borderRadius: '12px',
+              backgroundColor: msg.role === 'user' ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+              color: msg.role === 'user' ? '#fff' : 'var(--text-primary)',
+              lineHeight: '1.5',
+              whiteSpace: 'pre-wrap'
+            }}>
+              {msg.content}
             </div>
           </div>
         ))}
-
         {loading && (
-          <div className="chat-message chat-message-ai">
-            <div className="chat-message-bubble chat-message-typing">
-              <div className="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ padding: '12px 16px', borderRadius: '12px', backgroundColor: 'var(--bg-elevated)', display: 'flex', gap: '4px' }}>
+              <span style={{ animation: 'pulse 1s infinite' }}>.</span>
+              <span style={{ animation: 'pulse 1s infinite 0.2s' }}>.</span>
+              <span style={{ animation: 'pulse 1s infinite 0.4s' }}>.</span>
             </div>
           </div>
         )}
-
-        <div ref={messagesEndRef} />
+        <div ref={chatEndRef} />
       </div>
 
-      {/* Quick Actions */}
-      {messages.length <= 2 && (
-        <div className="chat-quick-actions">
-          {QUICK_ACTIONS.map((action, i) => (
-            <button
-              key={i}
-              className="chat-quick-action"
-              onClick={() => handleQuickAction(action)}
-              disabled={loading}
-            >
-              {action.label}
-            </button>
-          ))}
+      <div style={{ padding: '24px', borderTop: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <input 
+            type="text" 
+            placeholder="Ask LEO..." 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSend(input); }}
+            style={{ flex: 1, padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
+          />
+          <button className="btn-primary" onClick={() => handleSend(input)} disabled={loading}>Send</button>
         </div>
-      )}
-
-      {/* Input Area */}
-      <form className="chat-input-area" onSubmit={handleSubmit}>
-        <input
-          ref={inputRef}
-          type="text"
-          className="chat-input"
-          placeholder="Ask LEO anything..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={loading}
-        />
-        <button
-          type="submit"
-          className="btn btn-primary btn-icon chat-send-btn"
-          disabled={!input.trim() || loading}
-        >
-          {loading ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
-        </button>
-      </form>
+      </div>
     </div>
   );
 }

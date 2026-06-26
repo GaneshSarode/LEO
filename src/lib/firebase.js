@@ -1,17 +1,17 @@
-/**
- * Firebase initialization for the Last-Minute Life Saver app.
- *
- * Reads configuration from NEXT_PUBLIC_FIREBASE_* environment variables.
- * If no config is provided the module exports `null` for `db` so the rest
- * of the app can fall back to localStorage.
- */
-
-import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-
-// ---------------------------------------------------------------------------
-// Configuration
-// ---------------------------------------------------------------------------
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query, 
+  where, 
+  orderBy, 
+  getDocs,
+  serverTimestamp 
+} from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -22,24 +22,88 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// ---------------------------------------------------------------------------
-// Initialisation
-// ---------------------------------------------------------------------------
+// Initialize Firebase
+const app = !getApps().length && firebaseConfig.projectId ? initializeApp(firebaseConfig) : (getApps().length ? getApp() : null);
+export const db = app ? getFirestore(app) : null;
 
-/**
- * Check whether a minimum viable Firebase config has been provided.
- * We require at least an API key and a project ID.
- */
-const hasConfig =
-  Boolean(firebaseConfig.apiKey) && Boolean(firebaseConfig.projectId);
+// Session ID logic (localStorage)
+export const getSessionId = () => {
+  if (typeof window === 'undefined') return 'server-session';
+  let sessionId = localStorage.getItem('leo_session_id');
+  if (!sessionId) {
+    sessionId = 'session_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('leo_session_id', sessionId);
+  }
+  return sessionId;
+};
 
-let app = null;
-let db = null;
+// CRUD Functions
+const COLLECTION_NAME = 'tasks';
 
-if (hasConfig) {
-  // Avoid re-initialising if the app already exists (e.g. HMR in Next.js)
-  app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
-  db = getFirestore(app);
-}
+export const getTasks = async () => {
+  if (!db) return [];
+  const sessionId = getSessionId();
+  try {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('sessionId', '==', sessionId),
+      orderBy('createdAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error getting tasks: ", error);
+    return [];
+  }
+};
 
-export { db, app };
+export const addTask = async (taskData) => {
+  if (!db) return null;
+  const sessionId = getSessionId();
+  try {
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+      ...taskData,
+      sessionId,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("Error adding task: ", error);
+    throw error;
+  }
+};
+
+export const updateTask = async (taskId, updates) => {
+  if (!db) return;
+  try {
+    const taskRef = doc(db, COLLECTION_NAME, taskId);
+    await updateDoc(taskRef, updates);
+  } catch (error) {
+    console.error("Error updating task: ", error);
+    throw error;
+  }
+};
+
+export const deleteTask = async (taskId) => {
+  if (!db) return;
+  try {
+    const taskRef = doc(db, COLLECTION_NAME, taskId);
+    await deleteDoc(taskRef);
+  } catch (error) {
+    console.error("Error deleting task: ", error);
+    throw error;
+  }
+};
+
+export const toggleSubtask = async (taskId, subtaskArray, subtaskId) => {
+  if (!db) return;
+  try {
+    const updatedSubtasks = subtaskArray.map(st => 
+      st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    );
+    await updateTask(taskId, { subtasks: updatedSubtasks });
+  } catch (error) {
+    console.error("Error toggling subtask: ", error);
+    throw error;
+  }
+};

@@ -7,32 +7,35 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
   const [formData, setFormData] = useState({
     title: initialTitle,
     category: 'work',
-    priority: 'medium',
-    deadline: ''
+    priority: 'medium'
   });
-
-  const formatLocalDatetime = (timestamp) => {
-    if (!timestamp) return '';
-    const d = new Date(timestamp);
-    const pad = (n) => n.toString().padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
+  const [deadlineDate, setDeadlineDate] = useState('');
+  const [deadlineTime, setDeadlineTime] = useState('');
 
   useEffect(() => {
     if (editTask) {
       setFormData({
         title: editTask.title || '',
         category: editTask.category || 'work',
-        priority: editTask.priority || 'medium',
-        deadline: formatLocalDatetime(editTask.deadline)
+        priority: editTask.priority || 'medium'
       });
+      if (editTask.deadline) {
+        const d = new Date(editTask.deadline);
+        const pad = (n) => n.toString().padStart(2, '0');
+        setDeadlineDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+        setDeadlineTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+      } else {
+        setDeadlineDate('');
+        setDeadlineTime('');
+      }
     } else {
       setFormData({
         title: initialTitle || '',
         category: 'work',
-        priority: 'medium',
-        deadline: ''
+        priority: 'medium'
       });
+      setDeadlineDate('');
+      setDeadlineTime('');
     }
   }, [editTask, show, initialTitle]);
 
@@ -41,16 +44,21 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const deadlineDate = formData.deadline ? new Date(formData.deadline).getTime() : null;
+      let finalDeadline = null;
+      if (deadlineDate) {
+        const t = deadlineTime || '23:59';
+        finalDeadline = new Date(`${deadlineDate}T${t}`).getTime();
+      }
+
       if (editTask) {
         await updateTask(editTask.id, {
           ...formData,
-          deadline: deadlineDate
+          deadline: finalDeadline
         });
       } else {
         await addTask({
           ...formData,
-          deadline: deadlineDate,
+          deadline: finalDeadline,
           completed: false,
           subtasks: [],
         });
@@ -110,12 +118,20 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Deadline</label>
-            <input 
-              type="datetime-local" 
-              value={formData.deadline}
-              onChange={(e) => setFormData({...formData, deadline: e.target.value})}
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
-            />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input 
+                type="date" 
+                value={deadlineDate}
+                onChange={(e) => setDeadlineDate(e.target.value)}
+                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+              />
+              <input 
+                type="time" 
+                value={deadlineTime}
+                onChange={(e) => setDeadlineTime(e.target.value)}
+                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+              />
+            </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
             <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
-import ReactMarkdown from 'react-markdown';
 
 export default function AIChat() {
   const [messages, setMessages] = useState([
@@ -12,6 +11,13 @@ export default function AIChat() {
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState([]);
   const chatEndRef = useRef(null);
+
+  const formatMessage = (text) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n/g, '<br/>');
+  };
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -90,9 +96,10 @@ export default function AIChat() {
               {msg.role === 'user' ? (
                 msg.content
               ) : (
-                <div className="markdown-body">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                </div>
+                <div 
+                  className="markdown-body" 
+                  dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }} 
+                />
               )}
             </div>
           </div>

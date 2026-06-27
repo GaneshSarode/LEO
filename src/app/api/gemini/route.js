@@ -47,6 +47,16 @@ export async function POST(req) {
         userMessage = `Task: ${payload.title}\nDeadline: ${payload.deadline || 'None'}`;
         break;
 
+      case 'weekly_report':
+        systemPrompt = `You are LEO, an AI productivity analyst. The user is a ${payload.userProfile?.role || 'user'} named ${payload.userProfile?.name || 'there'}. Given their task completion data for the past week, write a SHORT (3-4 sentences max) weekly insight report. Include: how many tasks completed vs total, their strongest/weakest pattern, and ONE specific actionable suggestion. Be encouraging but honest. Do NOT use markdown formatting.`;
+        userMessage = `Weekly stats: ${JSON.stringify(payload.stats)}\nTasks: ${JSON.stringify(payload.tasks || [])}`;
+        break;
+
+      case 'unstuck':
+        systemPrompt = `You are LEO, a supportive AI coach. The user is stuck on a specific task. Give them exactly 3 concrete, actionable next steps to get unstuck and make progress RIGHT NOW. Be specific to the task. Keep each step to one sentence. Start with something encouraging.`;
+        userMessage = `I'm stuck on this task: "${payload.title}"\nCategory: ${payload.category || 'general'}\nDeadline: ${payload.deadline ? new Date(payload.deadline).toLocaleDateString() : 'No deadline'}\nSubtasks completed: ${payload.subtaskProgress || 'none'}`;
+        break;
+
       default:
         return new Response(JSON.stringify({ error: 'Invalid action' }), {
           status: 400,

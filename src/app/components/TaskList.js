@@ -6,7 +6,7 @@ import { calculatePriorityScore, sortByPriority } from '@/lib/taskEngine';
 import TaskCard from './TaskCard';
 import TaskModal from './TaskModal';
 
-export default function TaskList() {
+export default function TaskList({ onFocus, onStuck }) {
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -169,6 +169,8 @@ export default function TaskList() {
               onToggleComplete={handleToggleComplete} 
               onEdit={handleEdit}
               onBreakdown={handleBreakdownRefresh}
+              onFocus={onFocus}
+              onStuck={onStuck}
             />
           ))
         )}

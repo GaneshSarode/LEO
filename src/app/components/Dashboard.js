@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
 import { getProductivityStats, calculatePriorityScore } from '@/lib/taskEngine';
 import TaskModal from './TaskModal';
 import VoiceButton from './VoiceButton';
+import ProgressChart from './ProgressChart';
 
 export default function Dashboard({ onNavigate, userProfile }) {
   const [tasks, setTasks] = useState([]);
@@ -12,7 +13,10 @@ export default function Dashboard({ onNavigate, userProfile }) {
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [dailyBriefing, setDailyBriefing] = useState('');
   const [loadingBriefing, setLoadingBriefing] = useState(false);
-  const briefingFetched = require('react').useRef(false);
+  const [weeklyReport, setWeeklyReport] = useState('');
+  const [loadingWeekly, setLoadingWeekly] = useState(false);
+  const briefingFetched = useRef(false);
+  const weeklyFetched = useRef(false);
 
   const fetchTasks = async () => {
     const data = await getTasks();
@@ -153,6 +157,50 @@ export default function Dashboard({ onNavigate, userProfile }) {
         >
           🤖 Ask LEO
         </button>
+      </div>
+
+      {/* Progress Visualization */}
+      <ProgressChart tasks={tasks} />
+
+      {/* Weekly AI Productivity Report */}
+      <div className="card" style={{ background: 'var(--bg-elevated)', borderLeft: '4px solid var(--accent-success)', padding: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <h2 className="font-heading" style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-success)', margin: 0 }}>
+            <span style={{ fontSize: '20px' }}>📊</span> Weekly Insights
+          </h2>
+          {!loadingWeekly && (
+            <button 
+              className="btn-ghost" 
+              style={{ fontSize: '12px', padding: '4px 8px' }}
+              onClick={() => {
+                weeklyFetched.current = false;
+                setWeeklyReport('');
+                setLoadingWeekly(true);
+                fetch('/api/gemini', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'weekly_report',
+                    payload: { tasks, stats, userProfile }
+                  })
+                })
+                .then(r => r.json())
+                .then(data => { if (data.result) setWeeklyReport(data.result); })
+                .catch(e => console.error(e))
+                .finally(() => setLoadingWeekly(false));
+              }}
+            >
+              🔄 Refresh
+            </button>
+          )}
+        </div>
+        {loadingWeekly ? (
+          <span style={{ color: 'var(--text-secondary)', animation: 'pulse 1s infinite' }}>Generating weekly insights...</span>
+        ) : (
+          <p style={{ color: 'var(--text-primary)', lineHeight: '1.6', fontSize: '15px', margin: 0 }}>
+            {weeklyReport || 'Click Refresh to generate your weekly productivity insights.'}
+          </p>
+        )}
       </div>
 
       {/* Upcoming Deadlines */}

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
 import VoiceButton from './VoiceButton';
 
-export default function AIChat() {
+export default function AIChat({ userProfile }) {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: "Hey! I'm LEO, your AI deadline companion. I know all your tasks and deadlines. Ask me anything — or try: 'Plan my day', 'What should I work on now?', or 'I'm feeling overwhelmed'." }
   ]);
@@ -31,6 +31,46 @@ export default function AIChat() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Listen for "I'm Stuck" events from TaskCard
+  useEffect(() => {
+    const handleUnstuck = async (e) => {
+      const task = e.detail;
+      if (!task) return;
+
+      const stuckMsg = `I'm stuck on: "${task.title}"`;
+      const newMessages = [...messages, { role: 'user', content: stuckMsg }];
+      setMessages(newMessages);
+      setLoading(true);
+
+      try {
+        const completedSubs = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
+        const totalSubs = task.subtasks ? task.subtasks.length : 0;
+        const res = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'unstuck',
+            payload: {
+              title: task.title,
+              category: task.category,
+              deadline: task.deadline,
+              subtaskProgress: totalSubs > 0 ? `${completedSubs}/${totalSubs}` : 'none'
+            }
+          })
+        });
+        const data = await res.json();
+        setMessages(prev => [...prev, { role: 'assistant', content: data.result || "Let me help you get unstuck! Try breaking the task into smaller pieces." }]);
+      } catch (err) {
+        setMessages(prev => [...prev, { role: 'assistant', content: "Here's a tip: start with the smallest possible next step. What's the first 5-minute action you could take?" }]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener('leo-unstuck', handleUnstuck);
+    return () => window.removeEventListener('leo-unstuck', handleUnstuck);
+  }, [messages]);
 
   const handleSend = async (messageText) => {
     if (!messageText.trim() || loading) return;

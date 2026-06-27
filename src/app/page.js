@@ -1,17 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ListTodo, Calendar, Bot } from 'lucide-react';
+import { LayoutDashboard, ListTodo, Calendar, Bot, Menu, X } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import TaskList from './components/TaskList';
 import AIChat from './components/AIChat';
 import ScheduleView from './components/ScheduleView';
 import ReminderEngine from './components/ReminderEngine';
+import FocusTimer from './components/FocusTimer';
 
 export default function Home() {
   const [activeView, setActiveView] = useState('dashboard');
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [focusTask, setFocusTask] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const profile = localStorage.getItem('leo_user_profile');
@@ -41,22 +44,76 @@ export default function Home() {
     { id: 'coach', label: 'AI Coach', icon: Bot },
   ];
 
+  const handleNavClick = (id) => {
+    setActiveView(id);
+    setSidebarOpen(false);
+  };
+
+  // "I'm Stuck" handler: navigate to AI Coach with a pre-filled unstuck request
+  const handleStuck = async (task) => {
+    setActiveView('coach');
+    // We'll let AIChat handle it via a global event
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('leo-unstuck', { detail: task }));
+    }, 300);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', width: '100vw' }}>
       
-      {/* Context-Aware Reminders — always mounted */}
+      {/* Context-Aware Reminders */}
       <ReminderEngine onNavigate={() => setActiveView('tasks')} />
 
+      {/* Focus Timer Overlay */}
+      {focusTask && (
+        <FocusTimer 
+          task={focusTask} 
+          onClose={() => setFocusTask(null)} 
+          onComplete={() => {}} 
+        />
+      )}
+
+      {/* Mobile Hamburger Button */}
+      <button
+        className="mobile-menu-btn"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        style={{
+          position: 'fixed', top: '16px', left: '16px', zIndex: 200,
+          background: 'var(--bg-surface)', border: '1px solid var(--border)',
+          borderRadius: '8px', padding: '8px', cursor: 'pointer',
+          color: 'var(--text-primary)', display: 'none',
+        }}
+      >
+        {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="mobile-overlay"
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', zIndex: 149, display: 'none',
+          }}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside style={{ 
-        width: '240px', 
-        backgroundColor: 'var(--bg-surface)', 
-        borderRight: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '24px 16px',
-        flexShrink: 0
-      }}>
+      <aside 
+        className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}
+        style={{ 
+          width: '240px', 
+          backgroundColor: 'var(--bg-surface)', 
+          borderRight: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '24px 16px',
+          flexShrink: 0,
+          zIndex: 150,
+          transition: 'transform 0.3s ease',
+        }}
+      >
         <div style={{ marginBottom: '40px' }}>
           <h1 className="font-heading" style={{ fontSize: '28px', color: 'var(--accent-primary)', marginBottom: '4px', letterSpacing: '-0.02em' }}>
             LEO
@@ -73,7 +130,7 @@ export default function Home() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveView(item.id)}
+                onClick={() => handleNavClick(item.id)}
                 style={{
                   textAlign: 'left',
                   padding: '10px 14px',
@@ -109,7 +166,7 @@ export default function Home() {
       {/* Main Content Area */}
       <main style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-primary)' }}>
         {activeView === 'dashboard' && <Dashboard onNavigate={setActiveView} userProfile={userProfile} />}
-        {activeView === 'tasks' && <TaskList />}
+        {activeView === 'tasks' && <TaskList onFocus={(task) => setFocusTask(task)} onStuck={handleStuck} />}
         {activeView === 'schedule' && <ScheduleView />}
         {activeView === 'coach' && <AIChat userProfile={userProfile} />}
       </main>

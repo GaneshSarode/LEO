@@ -3,7 +3,42 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getTasks } from '@/lib/firebase';
 import { getTasksNeedingAttention } from '@/lib/taskEngine';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle, Flame, Clock, Zap } from 'lucide-react';
+
+// Escalation levels based on time remaining
+const getEscalation = (deadlineMs) => {
+  const now = Date.now();
+  const diffMs = deadlineMs - now;
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  if (diffMs < 0) {
+    return { level: 'critical', emoji: '🚨', tone: 'OVERDUE', color: 'var(--accent-danger)', bg: 'rgba(239, 68, 68, 0.2)', border: 'rgba(239, 68, 68, 0.5)', icon: Flame, pulse: true };
+  }
+  if (diffHours <= 1) {
+    return { level: 'critical', emoji: '🔥', tone: 'URGENT', color: 'var(--accent-danger)', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)', icon: Flame, pulse: true };
+  }
+  if (diffHours <= 6) {
+    return { level: 'high', emoji: '⚡', tone: 'ACT NOW', color: 'var(--accent-warning)', bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.4)', icon: Zap, pulse: false };
+  }
+  if (diffHours <= 24) {
+    return { level: 'medium', emoji: '⏰', tone: 'HEADS UP', color: 'var(--accent-warning)', bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', icon: Clock, pulse: false };
+  }
+  return { level: 'gentle', emoji: '📋', tone: 'REMINDER', color: 'var(--text-secondary)', bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.2)', icon: Clock, pulse: false };
+};
+
+const getEscalationMessage = (task, escalation, timeDiffStr) => {
+  switch (escalation.level) {
+    case 'critical':
+      if (timeDiffStr.includes('overdue')) return `Stop everything! "${task.title}" is ${timeDiffStr}. Complete it NOW!`;
+      return `"${task.title}" is due in under an hour! Drop what you're doing and finish this.`;
+    case 'high':
+      return `"${task.title}" is ${timeDiffStr}. You still have time — start working on it now.`;
+    case 'medium':
+      return `"${task.title}" is ${timeDiffStr}. Plan to tackle this today.`;
+    default:
+      return `"${task.title}" is ${timeDiffStr}. Keep it on your radar.`;
+  }
+};
 
 export default function ReminderEngine({ onNavigate }) {
   const [bannerItems, setBannerItems] = useState([]);
@@ -12,7 +47,6 @@ export default function ReminderEngine({ onNavigate }) {
   const intervalRef = useRef(null);
   const notificationsSupported = useRef(false);
 
-  // Request notification permission on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       notificationsSupported.current = true;
@@ -36,7 +70,9 @@ export default function ReminderEngine({ onNavigate }) {
     const diffMins = Math.floor(diffMs / 60000);
     if (diffMins < 60) return `due in ${diffMins} minute${diffMins !== 1 ? 's' : ''}`;
     const diffHrs = Math.floor(diffMins / 60);
-    return `due in ${diffHrs} hour${diffHrs !== 1 ? 's' : ''}`;
+    if (diffHrs < 24) return `due in ${diffHrs} hour${diffHrs !== 1 ? 's' : ''}`;
+    const diffDays = Math.floor(diffHrs / 24);
+    return `due in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
   };
 
   const checkTasks = useCallback(async () => {
@@ -44,37 +80,42 @@ export default function ReminderEngine({ onNavigate }) {
       const tasks = await getTasks();
       const attentionTasks = getTasksNeedingAttention(tasks);
 
-      // Build banner items for all attention-needing tasks
       const items = attentionTasks.map((task) => {
         const deadlineMs = new Date(task.deadline).getTime();
         const timeDiffStr = formatTimeDiff(deadlineMs);
+        const escalation = getEscalation(deadlineMs);
         return {
           task,
-          message: `'${task.title}' is ${timeDiffStr}!`,
+          escalation,
+          message: getEscalationMessage(task, escalation, timeDiffStr),
+          timeDiffStr,
         };
+      });
+
+      // Sort by urgency: critical first
+      items.sort((a, b) => {
+        const order = { critical: 0, high: 1, medium: 2, gentle: 3 };
+        return (order[a.escalation.level] || 3) - (order[b.escalation.level] || 3);
       });
 
       setBannerItems(items);
 
-      // Fire browser notifications for tasks due within 1 hour that haven't been notified yet
+      // Fire browser notifications for escalating tasks
       const now = Date.now();
-      const oneHourFromNow = now + 60 * 60 * 1000;
-
       attentionTasks.forEach((task) => {
         const deadlineMs = new Date(task.deadline).getTime();
-        const isDueWithinOneHour = deadlineMs <= oneHourFromNow;
+        const diffHours = (deadlineMs - now) / (1000 * 60 * 60);
+        const shouldNotify = diffHours <= 6 || deadlineMs < now;
         const alreadyNotified = notifiedIdsRef.current.has(task.id);
 
-        if (isDueWithinOneHour && !alreadyNotified) {
+        if (shouldNotify && !alreadyNotified) {
           notifiedIdsRef.current.add(task.id);
+          const esc = getEscalation(deadlineMs);
 
-          if (
-            notificationsSupported.current &&
-            Notification.permission === 'granted'
-          ) {
+          if (notificationsSupported.current && Notification.permission === 'granted') {
             try {
-              new Notification('⏰ LEO Reminder', {
-                body: `'${task.title}' is due soon!`,
+              new Notification(`${esc.emoji} LEO ${esc.tone}`, {
+                body: getEscalationMessage(task, esc, formatTimeDiff(deadlineMs)),
                 icon: '/favicon.ico',
                 tag: `leo-reminder-${task.id}`,
               });
@@ -89,19 +130,10 @@ export default function ReminderEngine({ onNavigate }) {
     }
   }, []);
 
-  // Set up the interval on mount
   useEffect(() => {
-    // Run immediately on mount
     checkTasks();
-
-    // Then every 60 seconds
     intervalRef.current = setInterval(checkTasks, 60000);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [checkTasks]);
 
   const handleDismiss = (taskId) => {
@@ -112,146 +144,59 @@ export default function ReminderEngine({ onNavigate }) {
     });
   };
 
-  const handleTaskClick = (task) => {
-    if (onNavigate) {
-      onNavigate(task);
-    }
-  };
+  const visibleItems = bannerItems.filter((item) => !dismissedIds.has(item.task.id));
 
-  // Filter out dismissed items
-  const visibleItems = bannerItems.filter(
-    (item) => !dismissedIds.has(item.task.id)
-  );
-
-  // Don't render anything if no visible banners
-  if (visibleItems.length === 0) {
-    return null;
-  }
+  if (visibleItems.length === 0) return null;
 
   return (
     <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 100,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '1px',
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+      display: 'flex', flexDirection: 'column', gap: '1px',
     }}>
       {visibleItems.map((item) => {
-        const deadlineMs = new Date(item.task.deadline).getTime();
-        const isOverdue = deadlineMs < Date.now();
+        const { escalation } = item;
+        const EscIcon = escalation.icon;
 
         return (
           <div
             key={item.task.id}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '10px 20px',
-              backgroundColor: isOverdue
-                ? 'rgba(239, 68, 68, 0.15)'
-                : 'rgba(245, 158, 11, 0.15)',
-              borderBottom: `1px solid ${
-                isOverdue
-                  ? 'rgba(239, 68, 68, 0.3)'
-                  : 'rgba(245, 158, 11, 0.3)'
-              }`,
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
+              backgroundColor: escalation.bg,
+              borderBottom: `1px solid ${escalation.border}`,
+              borderLeft: `3px solid ${escalation.color}`,
+              backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+              animation: escalation.pulse ? 'reminderPulse 2s ease-in-out infinite' : 'none',
             }}
           >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              flex: 1,
-              minWidth: 0,
-            }}>
-              <AlertTriangle
-                size={16}
-                style={{
-                  color: isOverdue ? 'var(--accent-danger)' : 'var(--accent-warning)',
-                  flexShrink: 0,
-                }}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+              <EscIcon size={16} style={{ color: escalation.color, flexShrink: 0 }} />
               <span style={{
-                fontSize: '13px',
-                color: isOverdue ? 'var(--accent-danger)' : 'var(--accent-warning)',
-                fontWeight: 500,
+                fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+                color: escalation.color, padding: '2px 6px', borderRadius: '4px',
+                background: `${escalation.color}22`, flexShrink: 0,
               }}>
-                {isOverdue ? '🚨' : '⚠️'}
+                {escalation.tone}
               </span>
               <span style={{
-                fontSize: '13px',
-                color: 'var(--text-primary)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                fontSize: '13px', color: 'var(--text-primary)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                <span
-                  onClick={() => handleTaskClick(item.task)}
-                  style={{
-                    cursor: onNavigate ? 'pointer' : 'default',
-                    textDecoration: onNavigate ? 'underline' : 'none',
-                    textDecorationColor: isOverdue
-                      ? 'var(--accent-danger)'
-                      : 'var(--accent-warning)',
-                    textUnderlineOffset: '2px',
-                    color: 'var(--text-primary)',
-                    fontWeight: 600,
-                  }}
-                >
-                  {item.task.title}
-                </span>
-                <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>
-                  is {formatTimeDiff(new Date(item.task.deadline).getTime())}!
-                </span>
+                {item.message}
               </span>
             </div>
 
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              flexShrink: 0,
-              marginLeft: '12px',
-            }}>
-              <span
-                className="font-mono"
-                style={{
-                  fontSize: '11px',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {new Date(item.task.deadline).toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '12px' }}>
+              <span className="font-mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                {new Date(item.task.deadline).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
               </span>
               <button
                 onClick={() => handleDismiss(item.task.id)}
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '4px',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
+                  borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: 'var(--text-secondary)',
-                  transition: 'color 0.15s, background 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'var(--text-primary)';
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                  e.currentTarget.style.background = 'none';
                 }}
                 aria-label="Dismiss reminder"
               >

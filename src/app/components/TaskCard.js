@@ -5,7 +5,7 @@ import { updateTask } from '@/lib/firebase';
 import { calculatePriorityScore } from '@/lib/taskEngine';
 import { generateICSFile } from '@/lib/generateICS';
 
-export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onBreakdown }) {
+export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onBreakdown, onFocus, onStuck }) {
   const [isBreakingDown, setIsBreakingDown] = useState(false);
 
   const priorityScore = task.priorityScore || calculatePriorityScore(task);
@@ -123,6 +123,24 @@ export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onB
         )}
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {!task.completed && (
+            <button 
+              className="btn-primary" 
+              style={{ fontSize: '12px', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }} 
+              onClick={() => onFocus && onFocus(task)}
+            >
+              ▶️ Start Working
+            </button>
+          )}
+          {!task.completed && (
+            <button 
+              className="btn-ghost" 
+              style={{ fontSize: '12px', padding: '4px 8px', color: 'var(--accent-warning)', borderColor: 'var(--accent-warning)' }} 
+              onClick={() => onStuck && onStuck(task)}
+            >
+              🆘 I'm Stuck
+            </button>
+          )}
           <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={handleBreakdown} disabled={isBreakingDown}>
             {isBreakingDown ? '⏳ Breaking down...' : '🔨 Break it down'}
           </button>

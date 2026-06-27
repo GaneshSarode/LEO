@@ -133,3 +133,45 @@ a, button, input, select, textarea {
 .markdown-body p:last-child {
   margin-bottom: 0;
 }
+
+/* Reminder Pulse Animation */
+@keyframes reminderPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex !important;
+  }
+
+  .mobile-overlay {
+    display: block !important;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    transform: translateX(-100%);
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0) !important;
+  }
+
+  /* Stack stats grid on mobile */
+  .card {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  main {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+

@@ -150,8 +150,7 @@ export default function ReminderEngine({ onNavigate }) {
 
   return (
     <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      display: 'flex', flexDirection: 'column', gap: '1px',
+      display: 'flex', flexDirection: 'column', gap: '1px', width: '100%'
     }}>
       {visibleItems.map((item) => {
         const { escalation } = item;

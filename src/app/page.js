@@ -59,10 +59,14 @@ export default function Home() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', width: '100vw' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>
       
       {/* Context-Aware Reminders */}
-      <ReminderEngine onNavigate={() => setActiveView('tasks')} />
+      <div style={{ flexShrink: 0, zIndex: 100, position: 'relative' }}>
+        <ReminderEngine onNavigate={() => setActiveView('tasks')} />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'row', flex: 1, overflow: 'hidden' }}>
 
       {/* Focus Timer Overlay */}
       {focusTask && (
@@ -170,7 +174,7 @@ export default function Home() {
         {activeView === 'schedule' && <ScheduleView />}
         {activeView === 'coach' && <AIChat userProfile={userProfile} />}
       </main>
-
+      </div>
     </div>
   );
 }

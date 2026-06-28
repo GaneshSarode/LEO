@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getTasks, deleteTask, updateTask } from '@/lib/firebase';
 import { calculatePriorityScore, sortByPriority } from '@/lib/taskEngine';
 import { askGemini } from '@/lib/gemini';
+import { differenceInHours } from 'date-fns';
 import TaskCard from './TaskCard';
 import TaskModal from './TaskModal';
 
@@ -15,6 +16,9 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
   const [editTaskData, setEditTaskData] = useState(null);
   const [reprioritizing, setReprioritizing] = useState(false);
   const [aiReasoning, setAiReasoning] = useState('');
+  const [urgentBanner, setUrgentBanner] = useState('');
+  const [dismissedBanner, setDismissedBanner] = useState(false);
+  const bannerFetched = useRef(false);
 
   const fetchTasks = async () => {
     const data = await getTasks();
@@ -29,6 +33,25 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  useEffect(() => {
+    if (tasks.length > 0 && !bannerFetched.current && !dismissedBanner) {
+      const urgentTask = tasks.find(t => !t.completed && t.deadline && differenceInHours(new Date(t.deadline), new Date()) < 6 && differenceInHours(new Date(t.deadline), new Date()) >= 0);
+      if (urgentTask) {
+        bannerFetched.current = true;
+        fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: `Task '${urgentTask.title}' is due in ${Math.floor(differenceInHours(new Date(urgentTask.deadline), new Date()))} hours. One urgent coaching sentence under 15 words. No emojis.` })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.text) setUrgentBanner(data.text.trim());
+        })
+        .catch(console.error);
+      }
+    }
+  }, [tasks, dismissedBanner]);
 
   const handleDelete = async (taskId) => {
     await deleteTask(taskId);
@@ -118,6 +141,27 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
             {reprioritizing ? '⏳ Analyzing...' : '🧠 Re-prioritize with AI'}
           </button>
         </div>
+
+        {urgentBanner && !dismissedBanner && (
+          <div style={{ 
+            padding: '12px 16px', 
+            borderRadius: '8px', 
+            background: 'rgba(239, 68, 68, 0.2)', 
+            border: '1px solid #ef4444',
+            color: '#fca5a5',
+            fontSize: '14px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontWeight: 600
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>⚠️</span>
+              <span>{urgentBanner}</span>
+            </div>
+            <button onClick={() => setDismissedBanner(true)} style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}>✕</button>
+          </div>
+        )}
 
         {aiReasoning && (
           <div style={{ 

@@ -1,387 +1,162 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { getTasks } from '@/lib/firebase';
-import { getDailyScheduleSuggestion } from '@/lib/taskEngine';
-import { askGemini } from '@/lib/gemini';
-import { RefreshCw, Calendar, Clock, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { getTasks, updateTask } from '@/lib/firebase';
+import { startOfWeek, addDays, format, isSameDay, differenceInHours } from 'date-fns';
+import { Calendar, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 
 export default function ScheduleView() {
-  const [schedule, setSchedule] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState(''); // 'ai' or 'local'
+  const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [selectedTask, setSelectedTask] = useState(null);
 
-  const todayFormatted = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
-  const buildSchedule = useCallback(async (taskList) => {
-    const incompleteTasks = taskList.filter((t) => !t.completed);
-
-    if (incompleteTasks.length === 0) {
-      setSchedule([]);
-      setSource('');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const data = await askGemini('schedule', { tasks: incompleteTasks });
-
-      if (data.error) throw new Error('API request failed: ' + data.error);
-
-      if (Array.isArray(data) && data.length > 0) {
-        const mapped = data.map((slot) => {
-          const matchedTask = taskList.find((t) => t.id === slot.taskId);
-          return {
-            time: slot.time || slot.suggestedTime || '--:--',
-            activity: slot.activity || slot.title || 'Untitled',
-            taskId: slot.taskId || null,
-            category: matchedTask?.category || null,
-            priority: matchedTask?.priority || null,
-          };
-        });
-        setSchedule(mapped);
-        setSource('ai');
-        setLoading(false);
-        return;
-      }
-
-      throw new Error('Invalid AI response');
-    } catch (err) {
-      console.warn('AI schedule failed, using local fallback:', err.message);
-      const localSchedule = getDailyScheduleSuggestion(taskList);
-      const mapped = localSchedule.map((slot) => {
-        const matchedTask = taskList.find((t) => t.id === slot.taskId);
-        return {
-          time: slot.suggestedTime,
-          activity: slot.title,
-          taskId: slot.taskId,
-          category: matchedTask?.category || null,
-          priority: matchedTask?.priority || null,
-        };
-      });
-      setSchedule(mapped);
-      setSource('local');
-      setLoading(false);
-    }
-  }, []);
-
-  const loadAndSchedule = useCallback(async () => {
+  const fetchTasks = async () => {
     setLoading(true);
     const data = await getTasks();
     setTasks(data);
-    await buildSchedule(data);
-  }, [buildSchedule]);
-
-  useEffect(() => {
-    loadAndSchedule();
-  }, [loadAndSchedule]);
-
-  const handleRegenerate = () => {
-    loadAndSchedule();
+    setLoading(false);
   };
 
-  // Skeleton loader
-  const SkeletonSlot = () => (
-    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-      <div style={{
-        width: '12px',
-        height: '12px',
-        borderRadius: '50%',
-        backgroundColor: 'var(--bg-elevated)',
-        flexShrink: 0,
-        marginTop: '6px',
-      }} />
-      <div style={{ flex: 1 }}>
-        <div style={{
-          height: '14px',
-          width: '60px',
-          backgroundColor: 'var(--bg-elevated)',
-          borderRadius: '4px',
-          marginBottom: '8px',
-          animation: 'pulse 1.5s ease-in-out infinite',
-        }} />
-        <div style={{
-          height: '60px',
-          backgroundColor: 'var(--bg-elevated)',
-          borderRadius: '8px',
-          animation: 'pulse 1.5s ease-in-out infinite',
-          animationDelay: '0.2s',
-        }} />
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const days = Array.from({length: 7}, (_, i) => addDays(weekStart, i));
+
+  const prevWeek = () => setWeekStart(addDays(weekStart, -7));
+  const nextWeek = () => setWeekStart(addDays(weekStart, 7));
+
+  const getUrgencyClass = (deadline, completed) => {
+    if (completed) return 'bg-elevated border-elevated text-secondary';
+    if (!deadline) return 'bg-primary border-primary text-primary';
+    const hrs = differenceInHours(new Date(deadline), new Date());
+    if (hrs < 0) return 'bg-danger border-danger text-white opacity-80';
+    if (hrs < 24) return 'bg-warning border-warning text-white';
+    return 'bg-success border-success text-white';
+  };
+
+  const getUrgencyStyles = (deadline, completed) => {
+    if (completed) return { background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' };
+    if (!deadline) return { background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
+    
+    const hrs = differenceInHours(new Date(deadline), new Date());
+    if (hrs < 0) return { background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#fca5a5' };
+    if (hrs < 24) return { background: 'rgba(249, 115, 22, 0.3)', border: '1px solid #f97316', color: '#fdba74' };
+    return { background: 'rgba(21, 128, 61, 0.3)', border: '1px solid #15803d', color: '#86efac' };
+  };
+
+  const handleMarkComplete = async (taskId) => {
+    await updateTask(taskId, { completed: true, completedAt: Date.now() });
+    setSelectedTask(null);
+    fetchTasks();
+  };
+
+  if (loading) {
+    return <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading schedule...</div>;
+  }
 
   return (
-    <div style={{
-      padding: '32px',
-      maxWidth: '700px',
-      margin: '0 auto',
-      minHeight: '100%',
-    }}>
-      {/* Pulse animation keyframe */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
-
-      {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: '32px',
-      }}>
-        <div>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            marginBottom: '6px',
-          }}>
-            <Calendar size={22} style={{ color: 'var(--accent-primary)' }} />
-            <h1 className="font-heading" style={{ fontSize: '28px', margin: 0 }}>
-              Today&#39;s Plan
-            </h1>
-          </div>
-          <p className="font-heading" style={{
-            color: 'var(--text-secondary)',
-            fontSize: '14px',
-            margin: 0,
-          }}>
-            {todayFormatted}
-          </p>
-          {source && !loading && (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              marginTop: '8px',
-              fontSize: '11px',
-              color: source === 'ai' ? 'var(--accent-glow)' : 'var(--text-muted)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              backgroundColor: source === 'ai'
-                ? 'rgba(99, 102, 241, 0.12)'
-                : 'rgba(71, 85, 105, 0.15)',
-            }}>
-              {source === 'ai' ? <Sparkles size={11} /> : <Clock size={11} />}
-              {source === 'ai' ? 'AI-generated schedule' : 'Local schedule'}
-            </div>
-          )}
+    <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <h1 className="font-heading" style={{ fontSize: '28px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Calendar style={{ color: 'var(--accent-primary)' }} /> Schedule
+        </h1>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button className="btn-ghost" onClick={prevWeek} style={{ padding: '8px' }}><ChevronLeft size={20} /></button>
+          <span className="font-heading" style={{ fontSize: '16px', minWidth: '150px', textAlign: 'center' }}>
+            {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
+          </span>
+          <button className="btn-ghost" onClick={nextWeek} style={{ padding: '8px' }}><ChevronRight size={20} /></button>
         </div>
-
-        <button
-          className="btn-ghost"
-          onClick={handleRegenerate}
-          disabled={loading}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '13px',
-            padding: '8px 14px',
-          }}
-        >
-          <RefreshCw
-            size={14}
-            style={{
-              animation: loading ? 'spin 1s linear infinite' : 'none',
-            }}
-          />
-          Regenerate
-        </button>
       </div>
 
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', 
+        gap: '12px',
+        flex: 1,
+        alignItems: 'stretch'
+      }}>
+        {days.map((day, i) => {
+          const isToday = isSameDay(day, new Date());
+          const dayTasks = tasks.filter(t => t.deadline && isSameDay(new Date(t.deadline), day));
 
-      {/* Content */}
-      {loading ? (
-        /* Skeleton Loading State */
-        <div style={{
-          position: 'relative',
-          paddingLeft: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '24px',
-        }}>
-          {/* Skeleton timeline line */}
-          <div style={{
-            position: 'absolute',
-            left: '5px',
-            top: '0',
-            bottom: '0',
-            width: '2px',
-            backgroundColor: 'var(--bg-elevated)',
-          }} />
-          {[0, 1, 2, 3, 4].map((i) => (
-            <SkeletonSlot key={i} />
-          ))}
-        </div>
-      ) : schedule.length === 0 ? (
-        /* Empty State */
-        <div className="card" style={{
-          textAlign: 'center',
-          padding: '48px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '12px',
-        }}>
-          <Calendar size={40} style={{ color: 'var(--text-muted)', marginBottom: '4px' }} />
-          <p style={{
-            color: 'var(--text-secondary)',
-            fontSize: '16px',
-            margin: 0,
-          }}>
-            No tasks to schedule. Add some tasks first!
-          </p>
-          <p style={{
-            color: 'var(--text-muted)',
-            fontSize: '13px',
-            margin: 0,
-          }}>
-            Once you add tasks, LEO will create an optimized daily plan for you.
-          </p>
-        </div>
-      ) : (
-        /* Timeline */
-        <div style={{
-          position: 'relative',
-          paddingLeft: '24px',
-        }}>
-          {/* Vertical timeline line */}
-          <div style={{
-            position: 'absolute',
-            left: '5px',
-            top: '6px',
-            bottom: '6px',
-            width: '2px',
-            backgroundColor: 'var(--accent-primary)',
-            opacity: 0.4,
-            borderRadius: '1px',
-          }} />
-
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-          }}>
-            {schedule.map((slot, index) => (
-              <div
-                key={index}
-                style={{
-                  display: 'flex',
-                  gap: '20px',
-                  alignItems: 'flex-start',
-                  position: 'relative',
-                }}
-              >
-                {/* Timeline dot */}
-                <div style={{
-                  position: 'absolute',
-                  left: '-24px',
-                  top: '18px',
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--accent-primary)',
-                  border: '2px solid var(--bg-primary)',
-                  boxShadow: '0 0 8px rgba(99, 102, 241, 0.4)',
-                  zIndex: 1,
-                }} />
-
-                {/* Time label */}
-                <div style={{
-                  minWidth: '52px',
-                  paddingTop: '14px',
-                  flexShrink: 0,
-                }}>
-                  <span
-                    className="font-mono"
-                    style={{
-                      fontSize: '14px',
-                      color: 'var(--accent-glow)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {slot.time}
-                  </span>
-                </div>
-
-                {/* Activity card */}
-                <div
-                  className="card"
-                  style={{
-                    flex: 1,
-                    padding: '14px 18px',
-                    cursor: 'default',
-                    transition: 'border-color 0.2s',
-                    borderLeft: `3px solid ${
-                      slot.priority === 'critical'
-                        ? 'var(--accent-danger)'
-                        : slot.priority === 'high'
-                        ? 'var(--accent-warning)'
-                        : slot.priority === 'medium'
-                        ? 'var(--accent-primary)'
-                        : 'var(--border)'
-                    }`,
-                  }}
-                >
-                  <h4 style={{
-                    fontSize: '15px',
-                    margin: '0 0 8px 0',
-                    color: 'var(--text-primary)',
-                    fontWeight: 500,
-                  }}>
-                    {slot.activity}
-                  </h4>
-
-                  <div style={{
-                    display: 'flex',
-                    gap: '8px',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                  }}>
-                    {slot.category && (
-                      <span style={{
-                        fontSize: '11px',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        border: '1px solid var(--border)',
-                        color: 'var(--text-secondary)',
-                        textTransform: 'capitalize',
-                      }}>
-                        {slot.category}
-                      </span>
-                    )}
-                    {slot.priority && (
-                      <span
-                        className={`badge badge-${slot.priority}`}
-                        style={{
-                          fontSize: '10px',
-                          textTransform: 'capitalize',
-                        }}
-                      >
-                        {slot.priority}
-                      </span>
-                    )}
-                  </div>
-                </div>
+          return (
+            <div 
+              key={i} 
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                border: isToday ? '2px solid var(--accent-primary)' : '1px solid var(--border)',
+                borderRadius: '8px',
+                background: 'var(--bg-surface)',
+                overflow: 'hidden'
+              }}
+            >
+              <div style={{ 
+                padding: '12px', 
+                textAlign: 'center', 
+                borderBottom: '1px solid var(--border)',
+                background: isToday ? 'rgba(99, 102, 241, 0.1)' : 'transparent'
+              }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{format(day, 'EEE')}</div>
+                <div className="font-heading" style={{ fontSize: '24px', color: isToday ? 'var(--accent-primary)' : 'var(--text-primary)' }}>{format(day, 'd')}</div>
               </div>
-            ))}
+
+              <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, background: dayTasks.length === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                {dayTasks.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', marginTop: '12px' }}>—</div>
+                ) : (
+                  dayTasks.map(task => (
+                    <div 
+                      key={task.id}
+                      onClick={() => setSelectedTask(task)}
+                      style={{
+                        padding: '8px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        transition: 'transform 0.1s',
+                        ...getUrgencyStyles(task.deadline, task.completed)
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      <div style={{ textDecoration: task.completed ? 'line-through' : 'none', fontWeight: 600, marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {task.title}
+                      </div>
+                      <div style={{ fontSize: '10px', opacity: 0.8 }}>
+                        {format(new Date(task.deadline), 'h:mm a')}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Task Popup */}
+      {selectedTask && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ width: '100%', maxWidth: '350px' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', textDecoration: selectedTask.completed ? 'line-through' : 'none' }}>{selectedTask.title}</h3>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
+              Due: {format(new Date(selectedTask.deadline), 'PP p')}
+              <br/>
+              Priority: <span style={{ textTransform: 'capitalize' }}>{selectedTask.priority}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button className="btn-ghost" onClick={() => setSelectedTask(null)}>Close</button>
+              {!selectedTask.completed && (
+                <button className="btn-primary" onClick={() => handleMarkComplete(selectedTask.id)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Check size={16} /> Mark Complete
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { addTask, updateTask } from '@/lib/firebase';
 import { askGemini } from '@/lib/gemini';
+import { Mic, MicOff } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function TaskModal({ show, onClose, onSave, editTask, initialTitle = '' }) {
   const [formData, setFormData] = useState({
@@ -17,6 +19,8 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [subtasks, setSubtasks] = useState([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [listening, setListening] = useState(false);
+  const [planChecklist, setPlanChecklist] = useState(null);
 
   useEffect(() => {
     if (editTask) {
@@ -47,6 +51,7 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
     }
     setNewSubtaskTitle('');
     setSuggestions([]);
+    setPlanChecklist(null);
   }, [editTask, show, initialTitle]);
 
   if (!show) return null;
@@ -71,6 +76,42 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
     }
   };
 
+  const startVoice = async () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const r = new SR();
+    r.lang = 'en-US';
+    r.interimResults = false;
+    setListening(true);
+    r.start();
+    r.onresult = async (e) => {
+      const transcript = e.results[0][0].transcript;
+      setListening(false);
+      setFormData(prev => ({...prev, title: transcript}));
+      
+      try {
+        const res = await fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Voice input: "${transcript}"\nToday: ${format(new Date(), 'yyyy-MM-dd')}\nExtract task title and deadline if mentioned.\nRespond ONLY with JSON: {"title":"...","deadline":"YYYY-MM-DD","hasDeadline":true}\nIf no deadline: {"title":"...","deadline":null,"hasDeadline":false}`
+          })
+        });
+        const data = await res.json();
+        const p = JSON.parse(data.text.replace(/```json|```/g,'').trim());
+        if (p.title) setFormData(prev => ({...prev, title: p.title}));
+        if (p.hasDeadline && p.deadline) {
+          setDeadlineDate(p.deadline);
+          // Set to end of day by default for date-only
+          setDeadlineTime('23:59');
+        }
+      } catch (e) {
+        console.error('Voice parsing failed', e);
+      }
+    };
+    r.onerror = () => setListening(false);
+  };
+
   const handleAutoPlan = async () => {
     if (!formData.title) {
       alert('Please enter a title first.');
@@ -78,44 +119,96 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
     }
     setIsPlanning(true);
     try {
-      let finalDeadline = null;
-      if (deadlineDate) {
-        const t = deadlineTime || '23:59';
-        finalDeadline = new Date(`${deadlineDate}T${t}`).getTime();
-      }
+      const promptStr = `Break this task into sub-tasks:
+Task: "${formData.title}"
+Deadline: ${deadlineDate ? deadlineDate : 'None'}
+Today: ${format(new Date(), 'yyyy-MM-dd')}
 
-      const data = await askGemini('autonomous_plan', { title: formData.title, deadline: finalDeadline });
+Respond ONLY with a JSON array:
+[
+  {"title":"Research and gather materials","estimatedMinutes":30,"daysBeforeDeadline":3},
+  {"title":"Create outline","estimatedMinutes":20,"daysBeforeDeadline":2}
+]
+4-6 sub-tasks. Titles under 8 words. Specific to this actual task.`;
+
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptStr })
+      });
+      const data = await res.json();
       
-      let subtasks = [];
-      if (Array.isArray(data)) {
-        subtasks = data.map((st, idx) => ({
-          id: Date.now().toString() + idx,
-          title: st.title,
-          completed: false
-        }));
+      let generatedSubtasks = [];
+      try {
+        generatedSubtasks = JSON.parse(data.text.replace(/```json|```/g,'').trim());
+      } catch (e) {
+        console.error("Failed to parse plan", e);
       }
-
-      if (editTask) {
-        await updateTask(editTask.id, {
-          ...formData,
-          deadline: finalDeadline,
-          subtasks
-        });
+      
+      if (Array.isArray(generatedSubtasks) && generatedSubtasks.length > 0) {
+        setPlanChecklist(generatedSubtasks.map(s => ({...s, selected: true})));
       } else {
-        await addTask({
-          ...formData,
-          deadline: finalDeadline,
-          completed: false,
-          subtasks,
-        });
+        alert("Could not generate a plan right now.");
       }
-      onSave();
-      onClose();
     } catch (e) {
       console.error("Auto plan error:", e);
+      alert("Failed to plan task. Please try again.");
     } finally {
       setIsPlanning(false);
     }
+  };
+
+  const applyPlanChecklist = async () => {
+    const selectedPlanTasks = planChecklist.filter(t => t.selected);
+    if (selectedPlanTasks.length === 0) return;
+    
+    // Instead of making them subtasks of the same task, the prompt says:
+    // "save parent task + all checked sub-tasks as individual Firestore docs"
+    // Wait, let's verify prompt: "On confirm: save parent task + all checked sub-tasks as individual Firestore docs, each with computed deadline (deadline - daysBeforeDeadline days)"
+    
+    let finalDeadline = null;
+    if (deadlineDate) {
+      const t = deadlineTime || '23:59';
+      finalDeadline = new Date(`${deadlineDate}T${t}`).getTime();
+    }
+
+    // Save parent task
+    let parentId = null;
+    if (editTask) {
+      await updateTask(editTask.id, {
+        ...formData,
+        deadline: finalDeadline,
+      });
+      parentId = editTask.id;
+    } else {
+      parentId = await addTask({
+        ...formData,
+        deadline: finalDeadline,
+        completed: false,
+        subtasks: []
+      });
+    }
+
+    // Save checked sub-tasks as INDIVIDUAL tasks in Firestore
+    for (const sub of selectedPlanTasks) {
+      let subDeadline = finalDeadline;
+      if (finalDeadline && sub.daysBeforeDeadline) {
+        subDeadline = new Date(finalDeadline - (sub.daysBeforeDeadline * 24 * 60 * 60 * 1000)).getTime();
+      }
+      
+      await addTask({
+        title: sub.title,
+        category: formData.category,
+        priority: formData.priority,
+        deadline: subDeadline,
+        completed: false,
+        subtasks: [],
+        parentTaskId: parentId // Link them just in case
+      });
+    }
+
+    onSave();
+    onClose();
   };
 
   const handleSubmit = async (e) => {
@@ -173,16 +266,36 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
                 </button>
               )}
             </div>
-            <input 
-              type="text" 
-              required
-              value={formData.title}
-              onChange={(e) => {
-                setFormData({...formData, title: e.target.value});
-                if (suggestions.length > 0) setSuggestions([]); // clear on type
-              }}
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input 
+                type="text" 
+                required
+                value={formData.title}
+                onChange={(e) => {
+                  setFormData({...formData, title: e.target.value});
+                  if (suggestions.length > 0) setSuggestions([]); // clear on type
+                }}
+                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+              />
+              {typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) && (
+                <button
+                  type="button"
+                  onClick={startVoice}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '8px', borderRadius: '50%', border: 'none',
+                    background: listening ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg-elevated)',
+                    color: listening ? '#ef4444' : 'var(--text-secondary)',
+                    cursor: 'pointer', transition: 'all 0.2s',
+                    boxShadow: listening ? '0 0 0 4px rgba(239, 68, 68, 0.1)' : 'none',
+                    animation: listening ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+                  }}
+                  title="Voice Input"
+                >
+                  {listening ? <MicOff size={18} /> : <Mic size={18} />}
+                </button>
+              )}
+            </div>
             {suggestions.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
                 {suggestions.map((s, i) => (
@@ -288,21 +401,53 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
               />
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-            <button 
-              type="button" 
-              className="btn-ghost" 
-              onClick={handleAutoPlan} 
-              disabled={isPlanning || !formData.title}
-              style={{ color: 'var(--accent-primary)', borderColor: 'var(--accent-primary)' }}
-            >
-              {isPlanning ? '⏳ Planning...' : '✨ Let LEO Plan This'}
-            </button>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button type="button" className="btn-ghost" onClick={onClose} disabled={isPlanning}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={isPlanning}>Save Task</button>
+          {planChecklist ? (
+            <div style={{ background: 'var(--bg-elevated)', padding: '16px', borderRadius: '8px', marginTop: '16px' }}>
+              <h3 style={{ fontSize: '15px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-glow)' }}>
+                ✨ LEO's Proposed Plan
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {planChecklist.map((sub, i) => (
+                  <label key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={sub.selected} 
+                      onChange={(e) => {
+                        const next = [...planChecklist];
+                        next[i].selected = e.target.checked;
+                        setPlanChecklist(next);
+                      }}
+                      style={{ marginTop: '4px' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{sub.title}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>~{sub.estimatedMinutes} mins • {sub.daysBeforeDeadline ? `${sub.daysBeforeDeadline} days before deadline` : 'No specific date'}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px', gap: '8px' }}>
+                <button type="button" className="btn-ghost" onClick={() => setPlanChecklist(null)}>Discard</button>
+                <button type="button" className="btn-primary" onClick={applyPlanChecklist}>✅ Add all ({planChecklist.filter(t=>t.selected).length} tasks)</button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+              <button 
+                type="button" 
+                className="btn-ghost" 
+                onClick={handleAutoPlan} 
+                disabled={isPlanning || !formData.title}
+                style={{ color: 'var(--accent-primary)', borderColor: 'var(--accent-primary)' }}
+              >
+                {isPlanning ? '⏳ Planning...' : '🤖 Let LEO plan this'}
+              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" className="btn-ghost" onClick={onClose} disabled={isPlanning}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={isPlanning}>Save Task</button>
+              </div>
+            </div>
+          )}
         </form>
       </div>
     </div>

@@ -119,3 +119,51 @@ export const toggleSubtask = async (taskId, subtaskArray, subtaskId) => {
     throw error;
   }
 };
+
+// --- HABITS CRUD ---
+
+const HABITS_COLLECTION = 'habits';
+
+export const getHabits = async () => {
+  if (!db) return [];
+  const sessionId = getSessionId(); // Using sessionId as userId since there is no true auth
+  try {
+    const q = query(
+      collection(db, HABITS_COLLECTION),
+      where('userId', '==', sessionId)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error getting habits: ", error);
+    return [];
+  }
+};
+
+export const addHabit = async (habitData) => {
+  if (!db) return null;
+  const sessionId = getSessionId();
+  try {
+    const docRef = await addDoc(collection(db, HABITS_COLLECTION), {
+      ...habitData,
+      userId: sessionId,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error("Error adding habit: ", error);
+    throw error;
+  }
+};
+
+export const updateHabit = async (habitId, updates) => {
+  if (!db) return;
+  try {
+    const habitRef = doc(db, HABITS_COLLECTION, habitId);
+    await updateDoc(habitRef, updates);
+  } catch (error) {
+    console.error("Error updating habit: ", error);
+    throw error;
+  }
+};
+

@@ -5,6 +5,7 @@ import { updateTask } from '@/lib/firebase';
 import { calculatePriorityScore } from '@/lib/taskEngine';
 import { generateICSFile } from '@/lib/generateICS';
 import { askGemini } from '@/lib/gemini';
+import { differenceInHours } from 'date-fns';
 
 export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onBreakdown, onFocus, onStuck }) {
   const [isBreakingDown, setIsBreakingDown] = useState(false);
@@ -26,6 +27,18 @@ export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onB
       return <span style={{ color: 'var(--accent-warning)' }} className="font-mono">{hours} hours left</span>;
     }
   };
+
+  const getUrgency = (deadline) => {
+    if (!deadline) return null;
+    const hrs = differenceInHours(new Date(deadline), new Date());
+    if (hrs < 0)   return { label: '❌ Overdue',   cls: 'bg-red-900/60 text-red-300' };
+    if (hrs < 6)   return { label: '🔴 URGENT',    cls: 'bg-red-600 text-white animate-pulse' };
+    if (hrs < 24)  return { label: '⚠️ Due soon',  cls: 'bg-orange-500/80 text-white' };
+    if (hrs < 48)  return { label: '🟡 Coming up', cls: 'bg-yellow-600/70 text-white' };
+    return         { label: '🟢 On track',         cls: 'bg-green-900/60 text-green-300' };
+  };
+
+  const urgency = getUrgency(task.deadline);
 
   const getScoreColor = (score) => {
     if (score >= 80) return 'var(--accent-danger)';
@@ -96,6 +109,22 @@ export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onB
           <span className={`badge badge-${task.priority}`} style={{ fontSize: '12px', textTransform: 'capitalize' }}>
             {task.priority}
           </span>
+          {urgency && !task.completed && (
+            <span 
+              className={urgency.cls.includes('bg-red-600') ? 'animate-pulse' : ''}
+              style={{ 
+                fontSize: '11px', 
+                padding: '2px 8px', 
+                borderRadius: '12px',
+                fontWeight: 600,
+                // fallback inline styles if tailwind classes don't work
+                backgroundColor: urgency.cls.includes('bg-red-600') ? '#dc2626' : urgency.cls.includes('bg-orange') ? 'rgba(249, 115, 22, 0.2)' : urgency.cls.includes('bg-yellow') ? 'rgba(202, 138, 4, 0.2)' : urgency.cls.includes('bg-red-900') ? 'rgba(127, 29, 29, 0.4)' : 'rgba(21, 128, 61, 0.2)',
+                color: urgency.cls.includes('text-white') ? 'white' : urgency.cls.includes('text-red-300') ? '#fca5a5' : '#86efac'
+              }}
+            >
+              {urgency.label}
+            </span>
+          )}
           {task.deadline && (
             <div style={{ fontSize: '12px', display: 'flex', alignItems: 'center' }}>
               {getCountdown(task.deadline)}

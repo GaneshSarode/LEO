@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
-import { getProductivityStats, calculatePriorityScore } from '@/lib/taskEngine';
 import { askGemini } from '@/lib/gemini';
+import { format } from 'date-fns';
 import TaskModal from './TaskModal';
 import VoiceButton from './VoiceButton';
 import ProgressChart from './ProgressChart';
@@ -14,8 +14,10 @@ export default function Dashboard({ onNavigate, userProfile }) {
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [dailyBriefing, setDailyBriefing] = useState('');
   const [loadingBriefing, setLoadingBriefing] = useState(false);
-  const [weeklyReport, setWeeklyReport] = useState('');
   const [loadingWeekly, setLoadingWeekly] = useState(false);
+  const [planning, setPlanning] = useState(false);
+  const [dayPlan, setDayPlan] = useState(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const briefingFetched = useRef(false);
   const weeklyFetched = useRef(false);
 
@@ -70,6 +72,40 @@ export default function Dashboard({ onNavigate, userProfile }) {
 
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const planMyDay = async () => {
+    setPlanning(true);
+    setShowPlanModal(true);
+    const taskList = tasks.filter(t => !t.completed).map(t =>
+      `- "${t.title}" due ${t.deadline ? new Date(t.deadline).toLocaleDateString() : 'none'}, priority: ${t.priority || 'normal'}`
+    ).join('\n');
+
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: `Today is ${format(new Date(), 'EEEE, MMMM d, yyyy')}.
+Tasks:
+${taskList}
+
+Build a realistic time-blocked plan for TODAY only.
+Respond ONLY with JSON array:
+[
+  {"time":"9:00 AM","duration":"45 min","task":"Leetcode 20 questions","tip":"Start with easy problems"},
+  ...
+]
+Max 5 blocks. Only include tasks due today or urgent. Be specific.`
+      })
+    });
+    const data = await res.json();
+    try {
+      const plan = JSON.parse(data.text.replace(/```json|```/g,'').trim());
+      setDayPlan(plan);
+    } catch {
+      setDayPlan(null);
+    }
+    setPlanning(false);
   };
 
   // Greeting based on time of day
@@ -139,7 +175,7 @@ export default function Dashboard({ onNavigate, userProfile }) {
         <button 
           className="btn-primary" 
           style={{ flex: 1, padding: '14px', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-          onClick={() => onNavigate && onNavigate('schedule')}
+          onClick={planMyDay}
         >
           📋 Plan My Day
         </button>
@@ -263,6 +299,49 @@ export default function Dashboard({ onNavigate, userProfile }) {
         editTask={null}
         initialTitle={quickAddTitle}
       />
+
+      {/* Plan My Day Modal */}
+      {showPlanModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
+            <h2 className="font-heading" style={{ margin: '0 0 16px 0', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📅 Your Plan for Today
+            </h2>
+            {planning ? (
+              <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)', animation: 'pulse 1.5s infinite' }}>
+                Analyzing your tasks and building an optimal schedule...
+              </div>
+            ) : dayPlan && Array.isArray(dayPlan) ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {dayPlan.map((block, i) => (
+                  <div key={i} style={{ background: 'var(--bg-primary)', padding: '12px', borderRadius: '8px', borderLeft: '3px solid var(--accent-primary)' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>
+                      {block.time} · {block.duration}
+                    </div>
+                    <div style={{ fontSize: '15px', color: 'var(--text-primary)', marginBottom: '6px' }}>
+                      {block.task}
+                    </div>
+                    {block.tip && (
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                        💡 {block.tip}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--accent-warning)' }}>
+                Could not generate a plan. Please try again.
+              </div>
+            )}
+            <div style={{ marginTop: '24px', textAlign: 'right' }}>
+              <button className="btn-primary" onClick={() => setShowPlanModal(false)} disabled={planning}>
+                Looks good, let's go!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

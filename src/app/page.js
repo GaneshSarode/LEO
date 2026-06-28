@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ListTodo, Calendar, Bot, Menu, X } from 'lucide-react';
+import { LayoutDashboard, ListTodo, Calendar, Bot, Menu, X, Flame } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import TaskList from './components/TaskList';
 import AIChat from './components/AIChat';
 import ScheduleView from './components/ScheduleView';
+import HabitsView from './components/HabitsView';
 import ReminderEngine from './components/ReminderEngine';
 import FocusTimer from './components/FocusTimer';
 
@@ -41,6 +42,7 @@ export default function Home() {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'tasks', label: 'Tasks', icon: ListTodo },
     { id: 'schedule', label: 'Schedule', icon: Calendar },
+    { id: 'habits', label: 'Habits', icon: Flame },
     { id: 'coach', label: 'AI Coach', icon: Bot },
   ];
 
@@ -172,6 +174,7 @@ export default function Home() {
         {activeView === 'dashboard' && <Dashboard onNavigate={setActiveView} userProfile={userProfile} />}
         {activeView === 'tasks' && <TaskList onFocus={(task) => setFocusTask(task)} onStuck={handleStuck} userProfile={userProfile} />}
         {activeView === 'schedule' && <ScheduleView />}
+        {activeView === 'habits' && <HabitsView userProfile={userProfile} />}
         {activeView === 'coach' && <AIChat userProfile={userProfile} />}
       </main>
       </div>

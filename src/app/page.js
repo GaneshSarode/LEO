@@ -170,7 +170,7 @@ export default function Home() {
       {/* Main Content Area */}
       <main style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-primary)' }}>
         {activeView === 'dashboard' && <Dashboard onNavigate={setActiveView} userProfile={userProfile} />}
-        {activeView === 'tasks' && <TaskList onFocus={(task) => setFocusTask(task)} onStuck={handleStuck} />}
+        {activeView === 'tasks' && <TaskList onFocus={(task) => setFocusTask(task)} onStuck={handleStuck} userProfile={userProfile} />}
         {activeView === 'schedule' && <ScheduleView />}
         {activeView === 'coach' && <AIChat userProfile={userProfile} />}
       </main>

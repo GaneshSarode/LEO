@@ -7,7 +7,7 @@ import { askGemini } from '@/lib/gemini';
 import TaskCard from './TaskCard';
 import TaskModal from './TaskModal';
 
-export default function TaskList({ onFocus, onStuck }) {
+export default function TaskList({ onFocus, onStuck, userProfile }) {
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -176,6 +176,42 @@ export default function TaskList({ onFocus, onStuck }) {
       >
         +
       </button>
+
+      {/* Empty State Popup (First Task Prompt) */}
+      {tasks.length === 0 && (
+        <div 
+          onClick={() => { setEditTaskData(null); setShowModal(true); }}
+          style={{
+            position: 'fixed',
+            bottom: '104px', // 32px (button bottom) + 56px (button height) + 16px (gap)
+            right: '40px',
+            backgroundColor: 'var(--accent-primary)',
+            color: 'white',
+            padding: '16px',
+            borderRadius: '12px',
+            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
+            maxWidth: '280px',
+            zIndex: 100,
+            cursor: 'pointer',
+            animation: 'slideUp 0.3s ease-out, float 3s ease-in-out infinite'
+          }}
+        >
+          <div style={{
+            position: 'absolute',
+            bottom: '-8px',
+            right: '20px',
+            width: '0',
+            height: '0',
+            borderLeft: '8px solid transparent',
+            borderRight: '8px solid transparent',
+            borderTop: '8px solid var(--accent-primary)',
+          }}></div>
+          <h4 style={{ marginBottom: '4px', fontSize: '15px' }}>👋 Hey {userProfile?.name}!</h4>
+          <p style={{ fontSize: '13px', margin: 0, opacity: 0.9 }}>
+            You don't have any tasks yet. Click here to add your first task and let LEO help you crush it!
+          </p>
+        </div>
+      )}
 
       <TaskModal 
         show={showModal} 

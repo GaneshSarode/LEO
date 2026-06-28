@@ -219,29 +219,23 @@ export default function Dashboard({ onNavigate, userProfile }) {
       <div style={{ marginTop: 'auto', display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
         {/* Empty State Popup (First Task Prompt) */}
         {tasks.length === 0 && (
-          <div style={{
-            position: 'absolute',
-            bottom: '70px',
-            right: '0',
-            backgroundColor: 'var(--accent-primary)',
-            color: 'white',
-            padding: '16px',
-            borderRadius: '12px',
-            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
-            maxWidth: '280px',
-            zIndex: 10,
-            animation: 'slideUp 0.3s ease-out, float 3s ease-in-out infinite'
-          }}>
-            <div style={{
-              position: 'absolute',
-              bottom: '-8px',
-              right: '32px',
-              width: '0',
-              height: '0',
-              borderLeft: '8px solid transparent',
-              borderRight: '8px solid transparent',
-              borderTop: '8px solid var(--accent-primary)',
-            }}></div>
+          <div 
+            onClick={() => setShowModal(true)}
+            style={{
+              position: 'fixed',
+              bottom: '40px',
+              right: '40px',
+              backgroundColor: 'var(--accent-primary)',
+              color: 'white',
+              padding: '16px',
+              borderRadius: '12px',
+              boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
+              maxWidth: '280px',
+              zIndex: 100,
+              cursor: 'pointer',
+              animation: 'slideUp 0.3s ease-out, float 3s ease-in-out infinite'
+            }}
+          >
             <h4 style={{ marginBottom: '4px', fontSize: '15px' }}>👋 Hey {userProfile?.name}!</h4>
             <p style={{ fontSize: '13px', margin: 0, opacity: 0.9 }}>
               You don't have any tasks yet. Click here to add your first task and let LEO help you crush it!

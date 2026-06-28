@@ -6,13 +6,33 @@ import { askGemini } from '@/lib/gemini';
 import VoiceButton from './VoiceButton';
 
 export default function AIChat({ userProfile }) {
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hey! I'm LEO, your AI deadline companion. I know all your tasks and deadlines. Ask me anything — or try: 'Plan my day', 'What should I work on now?', or 'I'm feeling overwhelmed'." }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState([]);
   const chatEndRef = useRef(null);
+  const isMounted = useRef(false);
+
+  useEffect(() => {
+    // Load from local storage on mount
+    const saved = localStorage.getItem('leo_chat_history');
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved));
+      } catch (e) {
+        setMessages([{ role: 'assistant', content: "Hey! I'm LEO, your AI deadline companion. I know all your tasks and deadlines. Ask me anything — or try: 'Plan my day', 'What should I work on now?', or 'I'm feeling overwhelmed'." }]);
+      }
+    } else {
+      setMessages([{ role: 'assistant', content: "Hey! I'm LEO, your AI deadline companion. I know all your tasks and deadlines. Ask me anything — or try: 'Plan my day', 'What should I work on now?', or 'I'm feeling overwhelmed'." }]);
+    }
+    isMounted.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (isMounted.current) {
+      localStorage.setItem('leo_chat_history', JSON.stringify(messages));
+    }
+  }, [messages]);
 
   const formatMessage = (text) => {
     return text
@@ -89,9 +109,24 @@ export default function AIChat({ userProfile }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', maxWidth: '800px', margin: '0 auto', background: 'var(--bg-primary)' }}>
-      <header style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--accent-success)' }}></div>
-        <h2 className="font-heading" style={{ fontSize: '20px', margin: 0 }}>LEO AI Coach</h2>
+      <header style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--accent-success)' }}></div>
+          <h2 className="font-heading" style={{ fontSize: '20px', margin: 0 }}>LEO AI Coach</h2>
+        </div>
+        <button 
+          className="btn-ghost" 
+          style={{ fontSize: '12px', padding: '6px 12px' }}
+          onClick={() => {
+            if (confirm('Clear chat history?')) {
+              const reset = [{ role: 'assistant', content: "Hey! I'm LEO, your AI deadline companion. Let's get to work!" }];
+              setMessages(reset);
+              localStorage.setItem('leo_chat_history', JSON.stringify(reset));
+            }
+          }}
+        >
+          🗑️ Clear Chat
+        </button>
       </header>
 
       <div style={{ padding: '16px 24px', display: 'flex', gap: '8px', overflowX: 'auto', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>

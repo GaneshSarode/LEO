@@ -183,7 +183,10 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
                     key={i} 
                     type="button"
                     onClick={() => {
-                      setFormData({...formData, title: s});
+                      const newTitle = formData.title.includes(' - ') 
+                        ? formData.title.split(' - ')[0] + ' - ' + s 
+                        : formData.title + ' - ' + s;
+                      setFormData({...formData, title: newTitle});
                       setSuggestions([]);
                     }}
                     style={{ background: 'var(--accent-primary)', color: 'white', border: 'none', borderRadius: '12px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', transition: 'opacity 0.2s' }}

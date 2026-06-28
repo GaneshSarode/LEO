@@ -104,13 +104,35 @@ export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onB
         </div>
 
         {totalSubtasks > 0 && (
-          <div style={{ marginBottom: '12px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
               <span>{completedSubtasks}/{totalSubtasks} subtasks</span>
               <span>{Math.round((completedSubtasks/totalSubtasks)*100)}%</span>
             </div>
-            <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--bg-elevated)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--bg-elevated)', borderRadius: '3px', overflow: 'hidden', marginBottom: '8px' }}>
               <div style={{ height: '100%', width: `${(completedSubtasks/totalSubtasks)*100}%`, backgroundColor: 'var(--accent-primary)', transition: 'width 0.3s' }}></div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginLeft: '4px' }}>
+              {task.subtasks.map((st, i) => (
+                <div 
+                  key={st.id || i} 
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: st.completed ? 'var(--text-secondary)' : 'var(--text-primary)', cursor: 'pointer' }}
+                  onClick={async () => {
+                    const newSubtasks = [...task.subtasks];
+                    newSubtasks[i].completed = !newSubtasks[i].completed;
+                    await updateTask(task.id, { subtasks: newSubtasks });
+                    if (onBreakdown) onBreakdown(); // Triggers a parent fetch
+                  }}
+                >
+                  <input 
+                    type="checkbox" 
+                    checked={st.completed || false} 
+                    readOnly
+                    style={{ cursor: 'pointer', width: '14px', height: '14px', marginTop: '2px' }}
+                  />
+                  <span style={{ textDecoration: st.completed ? 'line-through' : 'none', lineHeight: '1.4' }}>{st.title}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}

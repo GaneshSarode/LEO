@@ -1,17 +1,10 @@
-export async function POST(req) {
-  let action = '';
+export async function askGemini(action, payload) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'GEMINI_API_KEY not configured' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.error('GEMINI_API_KEY not configured');
+      return { error: 'GEMINI_API_KEY not configured' };
     }
-
-    const body = await req.json();
-    action = body.action;
-    const payload = body.payload;
 
     let systemPrompt = '';
     let userMessage = '';
@@ -58,17 +51,13 @@ export async function POST(req) {
         break;
 
       default:
-        return new Response(JSON.stringify({ error: 'Invalid action' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        console.error('Invalid action');
+        return { error: 'Invalid action' };
     }
 
     const prompt = userMessage;
 
-    // --- Helper: parse AI text into a Response ---
     const parseAndRespond = (text) => {
-      // Strip markdown formatting if AI still includes it
       if (text.startsWith('```json')) text = text.replace(/^```json\n/, '');
       if (text.startsWith('```')) text = text.replace(/^```\n/, '');
       if (text.endsWith('```')) text = text.replace(/\n```$/, '');
@@ -76,24 +65,14 @@ export async function POST(req) {
       if (action !== 'coach' && action !== 'briefing') {
         try {
           const parsed = JSON.parse(text);
-          return new Response(JSON.stringify(parsed), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
+          return parsed;
         } catch (e) {
-          return new Response(JSON.stringify({ result: text }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
+          return { result: text };
         }
       }
-      return new Response(JSON.stringify({ result: text }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return { result: text };
     };
 
-    // ========== STEP 1: Try Gemini (1 retry, 700ms wait) ==========
     let geminiText = null;
     const maxRetries = 1;
 
@@ -142,9 +121,8 @@ export async function POST(req) {
       return parseAndRespond(geminiText);
     }
 
-    // ========== STEP 2: Gemini failed — try Groq ==========
     console.log('Gemini failed. Falling back to Groq...');
-    const groqApiKey = process.env.GROQ_API_KEY;
+    const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
 
     if (groqApiKey) {
       try {
@@ -179,50 +157,31 @@ export async function POST(req) {
       } catch (groqFetchErr) {
         console.error('Groq fetch error:', groqFetchErr.message);
       }
-    } else {
-      console.log('GROQ_API_KEY not set, skipping Groq fallback.');
     }
 
-    // ========== STEP 3: Both failed — canned responses ==========
     console.log('Both Gemini and Groq failed. Using canned fallback.');
 
     if (action === 'breakdown' || action === 'autonomous_plan') {
-      const fallbackSubtasks = [
+      return [
         { id: "1", title: "Research and plan the task", completed: false },
         { id: "2", title: "Work on the first draft or implementation", completed: false },
         { id: "3", title: "Review and refine your work", completed: false },
         { id: "4", title: "Final check and submit", completed: false }
       ];
-      return new Response(JSON.stringify(fallbackSubtasks), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
     }
 
-    return new Response(JSON.stringify({ result: "LEO is experiencing high demand right now. Please try again in a moment." }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return { result: "LEO is experiencing high demand right now. Please try again in a moment." };
 
   } catch (error) {
     console.error('Unhandled API Error:', error);
-
     if (action === 'breakdown' || action === 'autonomous_plan') {
-      const fallbackSubtasks = [
+      return [
         { id: "1", title: "Research and plan the task", completed: false },
         { id: "2", title: "Work on the first draft or implementation", completed: false },
         { id: "3", title: "Review and refine your work", completed: false },
         { id: "4", title: "Final check and submit", completed: false }
       ];
-      return new Response(JSON.stringify(fallbackSubtasks), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
     }
-
-    return new Response(JSON.stringify({ result: "LEO is experiencing high demand right now. Please try again in a moment." }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return { result: "LEO is experiencing high demand right now. Please try again in a moment." };
   }
 }

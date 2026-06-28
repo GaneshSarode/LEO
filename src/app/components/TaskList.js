@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getTasks, deleteTask, updateTask } from '@/lib/firebase';
 import { calculatePriorityScore, sortByPriority } from '@/lib/taskEngine';
+import { askGemini } from '@/lib/gemini';
 import TaskCard from './TaskCard';
 import TaskModal from './TaskModal';
 
@@ -53,15 +54,7 @@ export default function TaskList({ onFocus, onStuck }) {
     setAiReasoning('');
     try {
       const incompleteTasks = tasks.filter(t => !t.completed);
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'prioritize',
-          payload: { tasks: incompleteTasks.map(t => ({ id: t.id, title: t.title, deadline: t.deadline, priority: t.priority })) }
-        })
-      });
-      const data = await res.json();
+      const data = await askGemini('prioritize', { tasks: incompleteTasks.map(t => ({ id: t.id, title: t.title, deadline: t.deadline, priority: t.priority })) });
       
       if (data.result && typeof data.result === 'string') {
         setAiReasoning(data.result);

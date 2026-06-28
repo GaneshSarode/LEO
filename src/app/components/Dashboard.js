@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
 import { getProductivityStats, calculatePriorityScore } from '@/lib/taskEngine';
+import { askGemini } from '@/lib/gemini';
 import TaskModal from './TaskModal';
 import VoiceButton from './VoiceButton';
 import ProgressChart from './ProgressChart';
@@ -31,15 +32,7 @@ export default function Dashboard({ onNavigate, userProfile }) {
     if (tasks.length > 0 && userProfile && !briefingFetched.current) {
       briefingFetched.current = true;
       setLoadingBriefing(true);
-      fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'briefing',
-          payload: { tasks, userProfile }
-        })
-      })
-      .then(r => r.json())
+      askGemini('briefing', { tasks, userProfile })
       .then(data => {
         if (data.result) setDailyBriefing(data.result);
       })
@@ -176,15 +169,7 @@ export default function Dashboard({ onNavigate, userProfile }) {
                 weeklyFetched.current = false;
                 setWeeklyReport('');
                 setLoadingWeekly(true);
-                fetch('/api/gemini', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    action: 'weekly_report',
-                    payload: { tasks, stats, userProfile }
-                  })
-                })
-                .then(r => r.json())
+                askGemini('weekly_report', { tasks, stats, userProfile })
                 .then(data => { if (data.result) setWeeklyReport(data.result); })
                 .catch(e => console.error(e))
                 .finally(() => setLoadingWeekly(false));

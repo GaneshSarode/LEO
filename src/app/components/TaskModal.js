@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { addTask, updateTask } from '@/lib/firebase';
+import { askGemini } from '@/lib/gemini';
 
 export default function TaskModal({ show, onClose, onSave, editTask, initialTitle = '' }) {
   const [formData, setFormData] = useState({
@@ -55,15 +56,7 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
         finalDeadline = new Date(`${deadlineDate}T${t}`).getTime();
       }
 
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'autonomous_plan',
-          payload: { title: formData.title, deadline: finalDeadline }
-        })
-      });
-      const data = await res.json();
+      const data = await askGemini('autonomous_plan', { title: formData.title, deadline: finalDeadline });
       
       let subtasks = [];
       if (Array.isArray(data)) {

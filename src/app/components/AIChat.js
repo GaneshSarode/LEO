@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
+import { askGemini } from '@/lib/gemini';
 import VoiceButton from './VoiceButton';
 
 export default function AIChat({ userProfile }) {
@@ -46,20 +47,12 @@ export default function AIChat({ userProfile }) {
       try {
         const completedSubs = task.subtasks ? task.subtasks.filter(s => s.completed).length : 0;
         const totalSubs = task.subtasks ? task.subtasks.length : 0;
-        const res = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'unstuck',
-            payload: {
-              title: task.title,
-              category: task.category,
-              deadline: task.deadline,
-              subtaskProgress: totalSubs > 0 ? `${completedSubs}/${totalSubs}` : 'none'
-            }
-          })
+        const data = await askGemini('unstuck', {
+          title: task.title,
+          category: task.category,
+          deadline: task.deadline,
+          subtaskProgress: totalSubs > 0 ? `${completedSubs}/${totalSubs}` : 'none'
         });
-        const data = await res.json();
         setMessages(prev => [...prev, { role: 'assistant', content: data.result || "Let me help you get unstuck! Try breaking the task into smaller pieces." }]);
       } catch (err) {
         setMessages(prev => [...prev, { role: 'assistant', content: "Here's a tip: start with the smallest possible next step. What's the first 5-minute action you could take?" }]);
@@ -81,18 +74,10 @@ export default function AIChat({ userProfile }) {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'coach',
-          payload: {
-            message: messageText,
-            tasks: tasks
-          }
-        })
+      const data = await askGemini('coach', {
+        message: messageText,
+        tasks: tasks
       });
-      const data = await res.json();
       setMessages([...newMessages, { role: 'assistant', content: data.result || "Sorry, I couldn't process that." }]);
     } catch (error) {
       console.error(error);

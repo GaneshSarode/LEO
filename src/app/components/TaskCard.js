@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { updateTask } from '@/lib/firebase';
 import { calculatePriorityScore } from '@/lib/taskEngine';
 import { generateICSFile } from '@/lib/generateICS';
+import { askGemini } from '@/lib/gemini';
 
 export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onBreakdown, onFocus, onStuck }) {
   const [isBreakingDown, setIsBreakingDown] = useState(false);
@@ -36,15 +37,7 @@ export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onB
   const handleBreakdown = async () => {
     setIsBreakingDown(true);
     try {
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'breakdown',
-          payload: { title: task.title, deadline: task.deadline }
-        })
-      });
-      const data = await res.json();
+      const data = await askGemini('breakdown', { title: task.title, deadline: task.deadline });
       if (Array.isArray(data)) {
         const subtasks = data.map((st, idx) => ({
           id: Date.now().toString() + idx,

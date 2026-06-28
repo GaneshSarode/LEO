@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getTasks } from '@/lib/firebase';
 import { getDailyScheduleSuggestion } from '@/lib/taskEngine';
+import { askGemini } from '@/lib/gemini';
 import { RefreshCw, Calendar, Clock, Sparkles } from 'lucide-react';
 
 export default function ScheduleView() {
@@ -29,18 +30,9 @@ export default function ScheduleView() {
     }
 
     try {
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'schedule',
-          payload: { tasks: incompleteTasks },
-        }),
-      });
+      const data = await askGemini('schedule', { tasks: incompleteTasks });
 
-      if (!res.ok) throw new Error('API request failed');
-
-      const data = await res.json();
+      if (data.error) throw new Error('API request failed: ' + data.error);
 
       if (Array.isArray(data) && data.length > 0) {
         const mapped = data.map((slot) => {

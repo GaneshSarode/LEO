@@ -15,6 +15,8 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
   const [isPlanning, setIsPlanning] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [subtasks, setSubtasks] = useState([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
 
   useEffect(() => {
     if (editTask) {
@@ -32,6 +34,7 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
         setDeadlineDate('');
         setDeadlineTime('');
       }
+      setSubtasks(editTask.subtasks || []);
     } else {
       setFormData({
         title: initialTitle || '',
@@ -40,7 +43,10 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
       });
       setDeadlineDate('');
       setDeadlineTime('');
+      setSubtasks([]);
     }
+    setNewSubtaskTitle('');
+    setSuggestions([]);
   }, [editTask, show, initialTitle]);
 
   if (!show) return null;
@@ -124,14 +130,15 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
       if (editTask) {
         await updateTask(editTask.id, {
           ...formData,
-          deadline: finalDeadline
+          deadline: finalDeadline,
+          subtasks: subtasks
         });
       } else {
         await addTask({
           ...formData,
           deadline: finalDeadline,
           completed: false,
-          subtasks: [],
+          subtasks: subtasks,
         });
       }
       onSave();
@@ -183,21 +190,61 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
                     key={i} 
                     type="button"
                     onClick={() => {
-                      const newTitle = formData.title.includes(' - ') 
-                        ? formData.title.split(' - ')[0] + ' - ' + s 
-                        : formData.title + ' - ' + s;
-                      setFormData({...formData, title: newTitle});
-                      setSuggestions([]);
+                      setSubtasks([...subtasks, { id: Date.now().toString() + i, title: s, completed: false }]);
+                      setSuggestions(suggestions.filter(sg => sg !== s));
                     }}
                     style={{ background: 'var(--accent-primary)', color: 'white', border: 'none', borderRadius: '12px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', transition: 'opacity 0.2s' }}
                     onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
                     onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                   >
-                    {s}
+                    + {s}
                   </button>
                 ))}
               </div>
             )}
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Subtasks</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+              {subtasks.map((st, index) => (
+                <div key={st.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-elevated)', padding: '8px 12px', borderRadius: '4px' }}>
+                  <span style={{ fontSize: '14px' }}>{st.title}</span>
+                  <button type="button" onClick={() => setSubtasks(subtasks.filter((_, i) => i !== index))} style={{ background: 'none', border: 'none', color: 'var(--accent-danger)', cursor: 'pointer' }}>✕</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input 
+                type="text" 
+                placeholder="Add manual subtask..." 
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newSubtaskTitle.trim()) {
+                      setSubtasks([...subtasks, { id: Date.now().toString(), title: newSubtaskTitle.trim(), completed: false }]);
+                      setNewSubtaskTitle('');
+                    }
+                  }
+                }}
+                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+              />
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (newSubtaskTitle.trim()) {
+                    setSubtasks([...subtasks, { id: Date.now().toString(), title: newSubtaskTitle.trim(), completed: false }]);
+                    setNewSubtaskTitle('');
+                  }
+                }}
+                className="btn-ghost" 
+                style={{ padding: '8px 12px' }}
+              >
+                Add
+              </button>
+            </div>
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Category</label>

@@ -13,6 +13,8 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
   const [deadlineDate, setDeadlineDate] = useState('');
   const [deadlineTime, setDeadlineTime] = useState('');
   const [isPlanning, setIsPlanning] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   useEffect(() => {
     if (editTask) {
@@ -42,6 +44,21 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
   }, [editTask, show, initialTitle]);
 
   if (!show) return null;
+
+  const handleSuggest = async () => {
+    if (!formData.title || formData.title.length < 3) return;
+    setIsSuggesting(true);
+    try {
+      const data = await askGemini('refine_topic', { title: formData.title });
+      if (Array.isArray(data) && data.length > 0) {
+        setSuggestions(data);
+      }
+    } catch (error) {
+      console.error("Suggestion error:", error);
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
 
   const handleAutoPlan = async () => {
     if (!formData.title) {
@@ -131,14 +148,46 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
         </h2>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Title</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
+              <label style={{ display: 'block', color: 'var(--text-secondary)' }}>Title</label>
+              {formData.title.length >= 3 && !editTask && (
+                <button 
+                  type="button" 
+                  onClick={handleSuggest} 
+                  disabled={isSuggesting}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+                >
+                  {isSuggesting ? 'Thinking...' : '💡 Refine Topic'}
+                </button>
+              )}
+            </div>
             <input 
               type="text" 
               required
               value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              onChange={(e) => {
+                setFormData({...formData, title: e.target.value});
+                if (suggestions.length > 0) setSuggestions([]); // clear on type
+              }}
               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
             />
+            {suggestions.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                {suggestions.map((s, i) => (
+                  <button 
+                    key={i} 
+                    type="button"
+                    onClick={() => {
+                      setFormData({...formData, title: s});
+                      setSuggestions([]);
+                    }}
+                    style={{ background: 'var(--accent-primary)', color: 'white', border: 'none', borderRadius: '12px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer' }}
+                  >
+                    + {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Category</label>

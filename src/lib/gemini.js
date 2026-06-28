@@ -50,6 +50,11 @@ export async function askGemini(action, payload) {
         userMessage = `I'm stuck on this task: "${payload.title}"\nCategory: ${payload.category || 'general'}\nDeadline: ${payload.deadline ? new Date(payload.deadline).toLocaleDateString() : 'No deadline'}\nSubtasks completed: ${payload.subtaskProgress || 'none'}`;
         break;
 
+      case 'refine_topic':
+        systemPrompt = `You are LEO. The user entered a broad task title. Suggest 3 highly specific, actionable sub-topics or variations of this task they could focus on instead. Return ONLY a JSON array of strings. Example: ["Leetcode - Binary Search", "Leetcode - Two Pointers", "Leetcode - Dynamic Programming"].`;
+        userMessage = `Task Title: "${payload.title}"`;
+        break;
+
       default:
         console.error('Invalid action');
         return { error: 'Invalid action' };

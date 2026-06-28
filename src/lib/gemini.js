@@ -51,8 +51,13 @@ export async function askGemini(action, payload) {
         break;
 
       case 'refine_topic':
-        systemPrompt = `You are LEO. The user entered a broad task title. Suggest 3 highly specific, actionable sub-topics or variations of this task they could focus on instead. Return ONLY a JSON array of strings. Example: ["Leetcode - Binary Search", "Leetcode - Two Pointers", "Leetcode - Dynamic Programming"].`;
-        userMessage = `Task Title: "${payload.title}"`;
+        systemPrompt = \`You are LEO. The user entered a broad task title. Suggest 6-8 short (2-4 word) specific subtopics for the task, and deduce the best category ("work", "study", or "personal").
+Return ONLY JSON with this format: { "suggestions": ["subtopic1", "subtopic2", ...], "category": "work" }
+Examples:
+- "LeetCode" -> { "suggestions": ["Binary Search", "Dynamic Programming", "Two Pointers", "Graphs", "Trees", "Sliding Window"], "category": "study" }
+- "Study" -> { "suggestions": ["Chapter Review", "Mock Test", "Past Papers", "Formula Sheet", "Flashcards", "Practice Quiz"], "category": "study" }
+- "Workout" -> { "suggestions": ["Chest Day", "Cardio", "Leg Day", "HIIT", "Core", "Pull Day"], "category": "personal" }\`;
+        userMessage = \`Task Title: "\${payload.title}"\`;
         break;
 
       default:

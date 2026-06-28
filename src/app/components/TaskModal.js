@@ -50,8 +50,13 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
     setIsSuggesting(true);
     try {
       const data = await askGemini('refine_topic', { title: formData.title });
-      if (Array.isArray(data) && data.length > 0) {
-        setSuggestions(data);
+      if (data.suggestions && Array.isArray(data.suggestions)) {
+        setSuggestions(data.suggestions);
+        if (data.category && ['work', 'study', 'personal'].includes(data.category)) {
+          setFormData(prev => ({ ...prev, category: data.category }));
+        }
+      } else if (Array.isArray(data) && data.length > 0) {
+        setSuggestions(data); // Fallback for old cache
       }
     } catch (error) {
       console.error("Suggestion error:", error);
@@ -181,9 +186,11 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
                       setFormData({...formData, title: s});
                       setSuggestions([]);
                     }}
-                    style={{ background: 'var(--accent-primary)', color: 'white', border: 'none', borderRadius: '12px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer' }}
+                    style={{ background: 'var(--accent-primary)', color: 'white', border: 'none', borderRadius: '12px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', transition: 'opacity 0.2s' }}
+                    onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
+                    onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                   >
-                    + {s}
+                    {s}
                   </button>
                 ))}
               </div>

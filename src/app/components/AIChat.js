@@ -35,10 +35,18 @@ export default function AIChat({ userProfile }) {
   }, [messages]);
 
   const formatMessage = (text) => {
-    return text
+    let formatted = text
+      // Markdown links
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: var(--accent-primary); text-decoration: underline;">$1</a>')
+      // Bold
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n/g, '<br/>');
+      // Italic
+      .replace(/\*(.*?)\*/g, '<em>$1</em>');
+      
+    // Raw URLs
+    formatted = formatted.replace(/(^|[^"'])(https?:\/\/[^\s<)\]]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer" style="color: var(--accent-primary); text-decoration: underline; word-break: break-all;">$2</a>');
+    
+    return formatted.replace(/\n/g, '<br/>');
   };
 
   useEffect(() => {

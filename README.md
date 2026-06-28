@@ -2,7 +2,7 @@
 
 ![LEO Logo](https://img.shields.io/badge/LEO-Execution_Officer-6366f1?style=for-the-badge&logo=appveyor)
 
-**Live Demo:** [https://leohackathon.vercel.app/](https://leohackathon.vercel.app/)
+**Live Demo (Google Cloud):** [https://leo-hackathon-69667.web.app/](https://leo-hackathon-69667.web.app/)
 
 LEO (Last-minute Execution Officer) is a powerful, context-aware productivity application designed to help you manage your tasks, schedule, and workflow efficiently.
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
+import { getProductivityStats, calculatePriorityScore } from '@/lib/taskEngine';
 import { askGemini } from '@/lib/gemini';
 import { format } from 'date-fns';
 import TaskModal from './TaskModal';

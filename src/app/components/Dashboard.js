@@ -16,6 +16,7 @@ export default function Dashboard({ onNavigate, userProfile }) {
   const [dailyBriefing, setDailyBriefing] = useState('');
   const [loadingBriefing, setLoadingBriefing] = useState(false);
   const [loadingWeekly, setLoadingWeekly] = useState(false);
+  const [weeklyReport, setWeeklyReport] = useState('');
   const [planning, setPlanning] = useState(false);
   const [dayPlan, setDayPlan] = useState(null);
   const [showPlanModal, setShowPlanModal] = useState(false);

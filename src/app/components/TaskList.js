@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getTasks, deleteTask, updateTask } from '@/lib/firebase';
 import { calculatePriorityScore, sortByPriority } from '@/lib/taskEngine';
 import { askGemini } from '@/lib/gemini';

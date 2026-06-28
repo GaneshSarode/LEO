@@ -1,19 +1,17 @@
-export async function askGemini(action, payload) {
+export async function POST(req) {
+  let action = '';
   try {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    
-    // If we DO NOT have a public API key (e.g., on Vercel where only GEMINI_API_KEY is set),
-    // we fallback to the secure server API route.
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.log('No NEXT_PUBLIC_GEMINI_API_KEY found. Falling back to server route /api/gemini...');
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
+      return new Response(JSON.stringify({ error: 'GEMINI_API_KEY not configured' }), {
+        status: 500,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, payload })
       });
-      if (!res.ok) throw new Error('API route failed');
-      return await res.json();
     }
+
+    const body = await req.json();
+    action = body.action;
+    const payload = body.payload;
 
     let systemPrompt = '';
     let userMessage = '';
@@ -60,18 +58,15 @@ export async function askGemini(action, payload) {
         break;
 
       case 'refine_topic':
-        systemPrompt = `You are LEO. The user entered a broad task title. Suggest 6-8 short (2-4 word) specific subtopics for the task, and deduce the best category ("work", "study", or "personal").
-Return ONLY JSON with this format: { "suggestions": ["subtopic1", "subtopic2", ...], "category": "work" }
-Examples:
-- "LeetCode" -> { "suggestions": ["Binary Search", "Dynamic Programming", "Two Pointers", "Graphs", "Trees", "Sliding Window"], "category": "study" }
-- "Study" -> { "suggestions": ["Chapter Review", "Mock Test", "Past Papers", "Formula Sheet", "Flashcards", "Practice Quiz"], "category": "study" }
-- "Workout" -> { "suggestions": ["Chest Day", "Cardio", "Leg Day", "HIIT", "Core", "Pull Day"], "category": "personal" }`;
+        systemPrompt = `You are LEO. The user entered a broad task title. Suggest 6-8 short (2-4 word) specific subtopics for the task, and deduce the best category ("work", "study", or "personal").\nReturn ONLY JSON with this format: { "suggestions": ["subtopic1", "subtopic2", ...], "category": "work" }\nExamples:\n- "LeetCode" -> { "suggestions": ["Binary Search", "Dynamic Programming", "Two Pointers", "Graphs", "Trees", "Sliding Window"], "category": "study" }\n- "Study" -> { "suggestions": ["Chapter Review", "Mock Test", "Past Papers", "Formula Sheet", "Flashcards", "Practice Quiz"], "category": "study" }\n- "Workout" -> { "suggestions": ["Chest Day", "Cardio", "Leg Day", "HIIT", "Core", "Pull Day"], "category": "personal" }`;
         userMessage = `Task Title: "${payload.title}"`;
         break;
 
       default:
-        console.error('Invalid action');
-        return { error: 'Invalid action' };
+        return new Response(JSON.stringify({ error: 'Invalid action' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
     }
 
     const prompt = userMessage;
@@ -84,12 +79,21 @@ Examples:
       if (action !== 'coach' && action !== 'briefing') {
         try {
           const parsed = JSON.parse(text);
-          return parsed;
+          return new Response(JSON.stringify(parsed), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
         } catch (e) {
-          return { result: text };
+          return new Response(JSON.stringify({ result: text }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
         }
       }
-      return { result: text };
+      return new Response(JSON.stringify({ result: text }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     };
 
     let geminiText = null;
@@ -141,7 +145,7 @@ Examples:
     }
 
     console.log('Gemini failed. Falling back to Groq...');
-    const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+    const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY || process.env.GROQ_API_KEY;
 
     if (groqApiKey) {
       try {
@@ -176,98 +180,49 @@ Examples:
       } catch (groqFetchErr) {
         console.error('Groq fetch error:', groqFetchErr.message);
       }
+    } else {
+      console.log('GROQ_API_KEY not set, skipping Groq fallback.');
     }
 
     console.log('Both Gemini and Groq failed. Using canned fallback.');
 
     if (action === 'breakdown' || action === 'autonomous_plan') {
-      return [
+      const fallbackSubtasks = [
         { id: "1", title: "Research and plan the task", completed: false },
         { id: "2", title: "Work on the first draft or implementation", completed: false },
         { id: "3", title: "Review and refine your work", completed: false },
         { id: "4", title: "Final check and submit", completed: false }
       ];
+      return new Response(JSON.stringify(fallbackSubtasks), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    return { result: "LEO is experiencing high demand right now. Please try again in a moment." };
+    return new Response(JSON.stringify({ result: "LEO is experiencing high demand right now. Please try again in a moment." }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('Unhandled API Error:', error);
+
     if (action === 'breakdown' || action === 'autonomous_plan') {
-      return [
+      const fallbackSubtasks = [
         { id: "1", title: "Research and plan the task", completed: false },
         { id: "2", title: "Work on the first draft or implementation", completed: false },
         { id: "3", title: "Review and refine your work", completed: false },
         { id: "4", title: "Final check and submit", completed: false }
       ];
-    }
-    return { result: "LEO is experiencing high demand right now. Please try again in a moment." };
-  }
-}
-
-export async function askGeminiRaw(prompt) {
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) {
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
+      return new Response(JSON.stringify(fallbackSubtasks), {
+        status: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
       });
-      return await res.json();
-    } catch (e) {
-      console.error('Server AI fallback failed', e);
-      return { error: 'Failed', text: '{"title":"Fallback Task","deadline":null,"hasDeadline":false}' };
     }
-  }
 
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }]
-        }),
-      }
-    );
-    if (response.ok) {
-      const data = await response.json();
-      const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      return { text: geminiText };
-    }
-  } catch (e) {
-    console.error("Client gemini fetch error", e);
+    return new Response(JSON.stringify({ result: "LEO is experiencing high demand right now. Please try again in a moment." }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-
-  const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
-  if (groqApiKey) {
-    try {
-      const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${groqApiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-          max_tokens: 1024,
-        }),
-      });
-      if (groqResponse.ok) {
-        const groqData = await groqResponse.json();
-        const groqText = groqData.choices?.[0]?.message?.content || '';
-        return { text: groqText };
-      }
-    } catch (e) {
-      console.error("Client groq fetch error", e);
-    }
-  }
-  return { error: 'Failed', text: '{"title":"Fallback Task","deadline":null,"hasDeadline":false}' };
 }

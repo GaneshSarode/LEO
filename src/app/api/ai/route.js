@@ -8,7 +8,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    const geminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const geminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!geminiApiKey) {
       return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 });
     }
@@ -45,7 +45,7 @@ export async function POST(request) {
 
     // Fallback to Groq if Gemini fails
     console.log('Gemini failed or returned empty. Falling back to Groq...');
-    const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+    const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY || process.env.GROQ_API_KEY;
     
     if (groqApiKey) {
       try {

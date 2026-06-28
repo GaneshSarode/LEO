@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
 import { getProductivityStats, calculatePriorityScore } from '@/lib/taskEngine';
-import { askGemini } from '@/lib/gemini';
+import { askGemini, askGeminiRaw } from '@/lib/gemini';
 import { format } from 'date-fns';
 import TaskModal from './TaskModal';
 import VoiceButton from './VoiceButton';
@@ -83,11 +83,7 @@ export default function Dashboard({ onNavigate, userProfile }) {
       `- "${t.title}" due ${t.deadline ? new Date(t.deadline).toLocaleDateString() : 'none'}, priority: ${t.priority || 'normal'}`
     ).join('\n');
 
-    const res = await fetch('/api/ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: `Today is ${format(new Date(), 'EEEE, MMMM d, yyyy')}.
+    const data = await askGeminiRaw(`Today is ${format(new Date(), 'EEEE, MMMM d, yyyy')}.
 Tasks:
 ${taskList}
 
@@ -97,13 +93,12 @@ Respond ONLY with JSON array:
   {"time":"9:00 AM","duration":"45 min","task":"Leetcode 20 questions","tip":"Start with easy problems"},
   ...
 ]
-Max 5 blocks. Only include tasks due today or urgent. Be specific.`
-      })
-    });
-    const data = await res.json();
+Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
+
+    let parsed = [];
     try {
-      const plan = JSON.parse(data.text.replace(/```json|```/g,'').trim());
-      setDayPlan(plan);
+      parsed = JSON.parse(data.text.replace(/```json|```/g,'').trim());
+      setDayPlan(parsed);
     } catch {
       setDayPlan(null);
     }

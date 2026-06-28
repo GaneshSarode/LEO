@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getHabits, addHabit, updateHabit } from '@/lib/firebase';
 import { subDays, format, isSameDay } from 'date-fns';
+import { askGeminiRaw } from '@/lib/gemini';
 import { Flame, Plus, Check, BarChart2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
@@ -92,12 +93,7 @@ Habits: ${habitList}.
 Write 2 sentences: performance review + one specific tip. Under 40 words. Be direct.`;
 
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
-      const data = await res.json();
+      const data = await askGeminiRaw(prompt);
       setSummary(data.text);
     } catch (e) {
       setSummary('Failed to generate summary. Please try again later.');

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getTasks, deleteTask, updateTask } from '@/lib/firebase';
 import { calculatePriorityScore, sortByPriority } from '@/lib/taskEngine';
-import { askGemini } from '@/lib/gemini';
+import { askGemini, askGeminiRaw } from '@/lib/gemini';
 import { differenceInHours } from 'date-fns';
 import TaskCard from './TaskCard';
 import TaskModal from './TaskModal';
@@ -39,12 +39,7 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
       const urgentTask = tasks.find(t => !t.completed && t.deadline && differenceInHours(new Date(t.deadline), new Date()) < 6 && differenceInHours(new Date(t.deadline), new Date()) >= 0);
       if (urgentTask) {
         bannerFetched.current = true;
-        fetch('/api/ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: `Task '${urgentTask.title}' is due in ${Math.floor(differenceInHours(new Date(urgentTask.deadline), new Date()))} hours. One urgent coaching sentence under 15 words. No emojis.` })
-        })
-        .then(res => res.json())
+        askGeminiRaw(`Task '${urgentTask.title}' is due in ${Math.floor(differenceInHours(new Date(urgentTask.deadline), new Date()))} hours. One urgent coaching sentence under 15 words. No emojis.`)
         .then(data => {
           if (data.text) setUrgentBanner(data.text.trim());
         })

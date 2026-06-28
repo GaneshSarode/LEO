@@ -1,0 +1,711 @@
+﻿commit 4fb305df8e5e2d95c5f70284fba43a1f22e00971
+Author: Ganesh Sarode <ganeshsarode3015@gmail.com>
+Date:   Mon Jun 29 01:27:18 2026 +0530
+
+    fix: remove syntax error in gemini prompt
+
+diff --git a/src/lib/gemini.js b/src/lib/gemini.js
+index 388d405..42d3090 100644
+--- a/src/lib/gemini.js
++++ b/src/lib/gemini.js
+@@ -51,13 +51,13 @@ export async function askGemini(action, payload) {
+         break;
+ 
+       case 'refine_topic':
+-        systemPrompt = \`You are LEO. The user entered a broad task title. Suggest 6-8 short (2-4 word) specific subtopics for the task, and deduce the best category ("work", "study", or "personal").
++        systemPrompt = `You are LEO. The user entered a broad task title. Suggest 6-8 short (2-4 word) specific subtopics for the task, and deduce the best category ("work", "study", or "personal").
+ Return ONLY JSON with this format: { "suggestions": ["subtopic1", "subtopic2", ...], "category": "work" }
+ Examples:
+ - "LeetCode" -> { "suggestions": ["Binary Search", "Dynamic Programming", "Two Pointers", "Graphs", "Trees", "Sliding Window"], "category": "study" }
+ - "Study" -> { "suggestions": ["Chapter Review", "Mock Test", "Past Papers", "Formula Sheet", "Flashcards", "Practice Quiz"], "category": "study" }
+-- "Workout" -> { "suggestions": ["Chest Day", "Cardio", "Leg Day", "HIIT", "Core", "Pull Day"], "category": "personal" }\`;
+-        userMessage = \`Task Title: "\${payload.title}"\`;
++- "Workout" -> { "suggestions": ["Chest Day", "Cardio", "Leg Day", "HIIT", "Core", "Pull Day"], "category": "personal" }`;
++        userMessage = `Task Title: "${payload.title}"`;
+         break;
+ 
+       default:
+
+commit 310b1d7b69dd863b8291284dc398b822c8e9e8c2
+Author: Ganesh Sarode <ganeshsarode3015@gmail.com>
+Date:   Mon Jun 29 01:26:05 2026 +0530
+
+    feat: enhance AI suggestions to return category and 6-8 short subtopics
+
+diff --git a/src/lib/gemini.js b/src/lib/gemini.js
+index 1d058be..388d405 100644
+--- a/src/lib/gemini.js
++++ b/src/lib/gemini.js
+@@ -51,8 +51,13 @@ export async function askGemini(action, payload) {
+         break;
+ 
+       case 'refine_topic':
+-        systemPrompt = `You are LEO. The user entered a broad task title. Suggest 3 highly specific, actionable sub-topics or variations of this task they could focus on instead. Return ONLY a JSON array of strings. Example: ["Leetcode - Binary Search", "Leetcode - Two Pointers", "Leetcode - Dynamic Programming"].`;
+-        userMessage = `Task Title: "${payload.title}"`;
++        systemPrompt = \`You are LEO. The user entered a broad task title. Suggest 6-8 short (2-4 word) specific subtopics for the task, and deduce the best category ("work", "study", or "personal").
++Return ONLY JSON with this format: { "suggestions": ["subtopic1", "subtopic2", ...], "category": "work" }
++Examples:
++- "LeetCode" -> { "suggestions": ["Binary Search", "Dynamic Programming", "Two Pointers", "Graphs", "Trees", "Sliding Window"], "category": "study" }
++- "Study" -> { "suggestions": ["Chapter Review", "Mock Test", "Past Papers", "Formula Sheet", "Flashcards", "Practice Quiz"], "category": "study" }
++- "Workout" -> { "suggestions": ["Chest Day", "Cardio", "Leg Day", "HIIT", "Core", "Pull Day"], "category": "personal" }\`;
++        userMessage = \`Task Title: "\${payload.title}"\`;
+         break;
+ 
+       default:
+
+commit 4463d81b3fd73cb9a32ee557ebb05758af754d12
+Author: Ganesh Sarode <ganeshsarode3015@gmail.com>
+Date:   Mon Jun 29 00:55:50 2026 +0530
+
+    feat: Add AI topic refinement suggestion to TaskModal
+
+diff --git a/src/lib/gemini.js b/src/lib/gemini.js
+index 4535e6e..1d058be 100644
+--- a/src/lib/gemini.js
++++ b/src/lib/gemini.js
+@@ -50,6 +50,11 @@ export async function askGemini(action, payload) {
+         userMessage = `I'm stuck on this task: "${payload.title}"\nCategory: ${payload.category || 'general'}\nDeadline: ${payload.deadline ? new Date(payload.deadline).toLocaleDateString() : 'No deadline'}\nSubtasks completed: ${payload.subtaskProgress || 'none'}`;
+         break;
+ 
++      case 'refine_topic':
++        systemPrompt = `You are LEO. The user entered a broad task title. Suggest 3 highly specific, actionable sub-topics or variations of this task they could focus on instead. Return ONLY a JSON array of strings. Example: ["Leetcode - Binary Search", "Leetcode - Two Pointers", "Leetcode - Dynamic Programming"].`;
++        userMessage = `Task Title: "${payload.title}"`;
++        break;
++
+       default:
+         console.error('Invalid action');
+         return { error: 'Invalid action' };
+
+commit 52a60e812392a7fd68e66da66bdd86fc4e1d2d17
+Author: Ganesh Sarode <ganeshsarode3015@gmail.com>
+Date:   Sun Jun 28 23:53:45 2026 +0530
+
+    Fix static export config and push static Gemini API updates
+
+diff --git a/src/lib/gemini.js b/src/lib/gemini.js
+new file mode 100644
+index 0000000..4535e6e
+--- /dev/null
++++ b/src/lib/gemini.js
+@@ -0,0 +1,187 @@
++export async function askGemini(action, payload) {
++  try {
++    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
++    if (!apiKey) {
++      console.error('GEMINI_API_KEY not configured');
++      return { error: 'GEMINI_API_KEY not configured' };
++    }
++
++    let systemPrompt = '';
++    let userMessage = '';
++
++    switch (action) {
++      case 'breakdown':
++        systemPrompt = 'You are a task breakdown expert. Given a task title and deadline, return a JSON array of 3-6 actionable subtasks. Each subtask object must have a "title" (string) and "estimatedMinutes" (number). Return ONLY JSON, no markdown formatting or backticks.';
++        userMessage = `Task: ${payload.title}\nDeadline: ${payload.deadline || 'None'}`;
++        break;
++
++      case 'schedule':
++        systemPrompt = 'You are an intelligent scheduler. Given an array of tasks with deadlines, return a JSON array representing an hour-by-hour plan for today. Each item must have "time" (e.g., "09:00 AM"), "taskId" (string, if it matches a task), and "activity" (string description). Return ONLY JSON, no markdown formatting.';
++        userMessage = `Tasks: ${JSON.stringify(payload.tasks)}`;
++        break;
++
++      case 'prioritize':
++        systemPrompt = 'You are a prioritization engine. Given an array of tasks, evaluate their urgency and importance based on deadlines and titles. Return a JSON array of the task IDs ordered from most urgent to least urgent. Return ONLY JSON, no markdown formatting.';
++        userMessage = `Tasks: ${JSON.stringify(payload.tasks)}`;
++        break;
++
++      case 'coach':
++        systemPrompt = 'You are LEO, a friendly, agentic AI productivity companion. Your goal is to help the user execute tasks before deadlines. Given the user message and their current tasks context, provide concise, actionable, and conversational advice.';
++        userMessage = `User Message: ${payload.message}\nContext Tasks: ${JSON.stringify(payload.tasks)}`;
++        break;
++
++      case 'briefing':
++        systemPrompt = `You are LEO, a proactive productivity coach. The user is a ${payload.userProfile?.role || 'user'}. Review their tasks and provide a short (2-3 sentences max) daily briefing. Start by saying 'Good morning ${payload.userProfile?.name || 'there'}!' or similar. State exactly what they should focus on first based on deadlines. Keep it highly actionable and direct.`;
++        userMessage = `Tasks: ${JSON.stringify(payload.tasks || [])}`;
++        break;
++
++      case 'autonomous_plan':
++        systemPrompt = `You are an autonomous AI planner. The user needs to accomplish: ${payload.title} by ${payload.deadline || 'None'}. Break this down into exactly 3-5 subtasks. Return ONLY a valid JSON array of objects with format: [{ "title": "subtask name" }]. Do not include markdown formatting or explanation.`;
++        userMessage = `Task: ${payload.title}\nDeadline: ${payload.deadline || 'None'}`;
++        break;
++
++      case 'weekly_report':
++        systemPrompt = `You are LEO, an AI productivity analyst. The user is a ${payload.userProfile?.role || 'user'} named ${payload.userProfile?.name || 'there'}. Given their task completion data for the past week, write a SHORT (3-4 sentences max) weekly insight report. Include: how many tasks completed vs total, their strongest/weakest pattern, and ONE specific actionable suggestion. Be encouraging but honest. Do NOT use markdown formatting.`;
++        userMessage = `Weekly stats: ${JSON.stringify(payload.stats)}\nTasks: ${JSON.stringify(payload.tasks || [])}`;
++        break;
++
++      case 'unstuck':
++        systemPrompt = `You are LEO, a supportive AI coach. The user is stuck on a specific task. Give them exactly 3 concrete, actionable next steps to get unstuck and make progress RIGHT NOW. Be specific to the task. Keep each step to one sentence. Start with something encouraging.`;
++        userMessage = `I'm stuck on this task: "${payload.title}"\nCategory: ${payload.category || 'general'}\nDeadline: ${payload.deadline ? new Date(payload.deadline).toLocaleDateString() : 'No deadline'}\nSubtasks completed: ${payload.subtaskProgress || 'none'}`;
++        break;
++
++      default:
++        console.error('Invalid action');
++        return { error: 'Invalid action' };
++    }
++
++    const prompt = userMessage;
++
++    const parseAndRespond = (text) => {
++      if (text.startsWith('```json')) text = text.replace(/^```json\n/, '');
++      if (text.startsWith('```')) text = text.replace(/^```\n/, '');
++      if (text.endsWith('```')) text = text.replace(/\n```$/, '');
++
++      if (action !== 'coach' && action !== 'briefing') {
++        try {
++          const parsed = JSON.parse(text);
++          return parsed;
++        } catch (e) {
++          return { result: text };
++        }
++      }
++      return { result: text };
++    };
++
++    let geminiText = null;
++    const maxRetries = 1;
++
++    for (let attempt = 0; attempt <= maxRetries; attempt++) {
++      try {
++        const response = await fetch(
++          `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
++          {
++            method: 'POST',
++            headers: {
++              'Content-Type': 'application/json',
++              'x-goog-api-key': apiKey,
++            },
++            body: JSON.stringify({
++              contents: [{ role: 'user', parts: [{ text: prompt }] }],
++              systemInstruction: { parts: [{ text: systemPrompt }] },
++            }),
++          }
++        );
++
++        if (response.ok) {
++          const data = await response.json();
++          geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
++          break;
++        }
++
++        const errData = await response.json().catch(() => ({}));
++        const isRetryable = response.status === 503 || response.status === 429 ||
++                            (errData.error?.message && errData.error.message.toLowerCase().includes('high demand'));
++
++        if (!isRetryable) break;
++
++        if (attempt < maxRetries) {
++          console.log(`Gemini API retryable error. Retrying... (${attempt + 1}/${maxRetries})`);
++          await new Promise(resolve => setTimeout(resolve, 700));
++        }
++      } catch (fetchErr) {
++        console.log(`Gemini fetch error: ${fetchErr.message}`);
++        if (attempt < maxRetries) {
++          await new Promise(resolve => setTimeout(resolve, 700));
++        }
++      }
++    }
++
++    if (geminiText) {
++      return parseAndRespond(geminiText);
++    }
++
++    console.log('Gemini failed. Falling back to Groq...');
++    const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
++
++    if (groqApiKey) {
++      try {
++        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
++          method: 'POST',
++          headers: {
++            'Content-Type': 'application/json',
++            'Authorization': `Bearer ${groqApiKey}`,
++          },
++          body: JSON.stringify({
++            model: 'llama-3.3-70b-versatile',
++            messages: [
++              { role: 'system', content: systemPrompt },
++              { role: 'user', content: prompt },
++            ],
++            temperature: 0.7,
++            max_tokens: 1024,
++          }),
++        });
++
++        if (groqResponse.ok) {
++          const groqData = await groqResponse.json();
++          const groqText = groqData.choices?.[0]?.message?.content || '';
++          if (groqText) {
++            console.log('Groq fallback succeeded.');
++            return parseAndRespond(groqText);
++          }
++        } else {
++          const groqErr = await groqResponse.text().catch(() => '');
++          console.error(`Groq API error (${groqResponse.status}): ${groqErr}`);
++        }
++      } catch (groqFetchErr) {
++        console.error('Groq fetch error:', groqFetchErr.message);
++      }
++    }
++
++    console.log('Both Gemini and Groq failed. Using canned fallback.');
++
++    if (action === 'breakdown' || action === 'autonomous_plan') {
++      return [
++        { id: "1", title: "Research and plan the task", completed: false },
++        { id: "2", title: "Work on the first draft or implementation", completed: false },
++        { id: "3", title: "Review and refine your work", completed: false },
++        { id: "4", title: "Final check and submit", completed: false }
++      ];
++    }
++
++    return { result: "LEO is experiencing high demand right now. Please try again in a moment." };
++
++  } catch (error) {
++    console.error('Unhandled API Error:', error);
++    if (action === 'breakdown' || action === 'autonomous_plan') {
++      return [
++        { id: "1", title: "Research and plan the task", completed: false },
++        { id: "2", title: "Work on the first draft or implementation", completed: false },
++        { id: "3", title: "Review and refine your work", completed: false },
++        { id: "4", title: "Final check and submit", completed: false }
++      ];
++    }
++    return { result: "LEO is experiencing high demand right now. Please try again in a moment." };
++  }
++}
+
+commit 712663b7cb593249f582fd103d0e59761ec8aba8
+Author: Ganesh Sarode <ganeshsarode3015@gmail.com>
+Date:   Fri Jun 26 21:48:16 2026 +0530
+
+    Complete all 7 hackathon features: AI prioritization, schedule view, reminders, streaks, voice input, calendar export, polished sidebar
+
+diff --git a/src/lib/gemini.js b/src/lib/gemini.js
+deleted file mode 100644
+index 9cc6914..0000000
+--- a/src/lib/gemini.js
++++ /dev/null
+@@ -1,204 +0,0 @@
+-/**
+- * Gemini AI client for the Last-Minute Life Saver app.
+- *
+- * Each helper builds a request payload with the appropriate system prompt
+- * and forwards it to the Next.js API route `/api/gemini`.
+- *
+- * All public functions are async and return `null` on failure so the UI
+- * can degrade gracefully when AI is unavailable.
+- */
+-
+-// ---------------------------------------------------------------------------
+-// System prompts
+-// ---------------------------------------------------------------------------
+-
+-export const SYSTEM_PROMPTS = {
+-  breakdown:
+-    'You are a task breakdown specialist. Given a task title and optional description, break it into 3-7 actionable subtasks. Return JSON array: [{"title": "subtask", "estimatedMinutes": number}]. Only return the JSON, no markdown.',
+-
+-  prioritize:
+-    'You are a productivity expert. Given a list of tasks with their deadlines and descriptions, rank them by urgency and importance. Return JSON array of task IDs in order of priority with brief reasoning: [{"id": "...", "reason": "..."}]. Only return JSON.',
+-
+-  schedule:
+-    'You are a daily planner. Given tasks and the current time, create an optimal schedule. Consider task priority, deadlines, and energy levels (morning=high focus, afternoon=moderate, evening=low). Return JSON: [{"taskId": "...", "suggestedTime": "HH:MM", "duration": minutes, "reason": "..."}]. Only return JSON.',
+-
+-  coach:
+-    'You are LEO, an AI productivity coach inside "The Last-Minute Life Saver" app. You help users manage tasks, overcome procrastination, and boost productivity. You have access to their task list. Be encouraging, practical, and concise. Use emojis sparingly. If they share their tasks context, reference specific tasks by name.',
+-
+-  nudge:
+-    'Generate a brief, motivational productivity nudge (1-2 sentences). Be specific and actionable, not generic. Return only the text.',
+-
+-  dailySummary:
+-    'Given the user task stats, generate a brief personalized daily insight (2-3 sentences). Mention specific numbers. Be encouraging but honest. Return only the text.',
+-};
+-
+-// ---------------------------------------------------------------------------
+-// Core API call
+-// ---------------------------------------------------------------------------
+-
+-/**
+- * Call the internal Gemini API route.
+- *
+- * @param {keyof SYSTEM_PROMPTS} action - Which system prompt to use.
+- * @param {string} userMessage - The user-facing message / payload.
+- * @param {object|null} taskContext - Optional task context to include.
+- * @returns {Promise<string|null>} Raw response text or null on failure.
+- */
+-export async function callGemini(action, userMessage, taskContext = null) {
+-  try {
+-    const res = await fetch('/api/gemini', {
+-      method: 'POST',
+-      headers: { 'Content-Type': 'application/json' },
+-      body: JSON.stringify({
+-        action,
+-        message: userMessage,
+-        taskContext,
+-      }),
+-    });
+-
+-    if (!res.ok) {
+-      console.error(`Gemini API error: ${res.status}`);
+-      return null;
+-    }
+-
+-    const data = await res.json();
+-    return data?.reply ?? data?.text ?? null;
+-  } catch (err) {
+-    console.error('Gemini API call failed:', err);
+-    return null;
+-  }
+-}
+-
+-// ---------------------------------------------------------------------------
+-// JSON response parser
+-// ---------------------------------------------------------------------------
+-
+-/**
+- * Safely parse a JSON response from the AI.
+- * Handles responses wrapped in markdown code blocks (```json ΓÇª ```).
+- *
+- * @param {string} text
+- * @returns {any|null} Parsed value or null on failure.
+- */
+-export function parseJSONResponse(text) {
+-  if (!text) return null;
+-
+-  try {
+-    // Strip optional markdown fences
+-    let cleaned = text.trim();
+-
+-    // Remove ```json ΓÇª ``` or ``` ΓÇª ```
+-    const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+-    if (fenceMatch) {
+-      cleaned = fenceMatch[1].trim();
+-    }
+-
+-    return JSON.parse(cleaned);
+-  } catch {
+-    console.warn('Failed to parse JSON response from AI:', text);
+-    return null;
+-  }
+-}
+-
+-// ---------------------------------------------------------------------------
+-// High-level helpers
+-// ---------------------------------------------------------------------------
+-
+-/**
+- * Break a task into subtasks.
+- * @param {string} title
+- * @param {string} [description='']
+- * @returns {Promise<Array<{title: string, estimatedMinutes: number}>|null>}
+- */
+-export async function breakdownTask(title, description = '') {
+-  const message = description
+-    ? `Task: ${title}\nDescription: ${description}`
+-    : `Task: ${title}`;
+-
+-  const raw = await callGemini('breakdown', message);
+-  return parseJSONResponse(raw);
+-}
+-
+-/**
+- * Ask the AI to prioritise a set of tasks.
+- * @param {Array} tasks
+- * @returns {Promise<Array<{id: string, reason: string}>|null>}
+- */
+-export async function prioritizeTasks(tasks) {
+-  const summaries = tasks.map((t) => ({
+-    id: t.id,
+-    title: t.title,
+-    deadline: t.deadline,
+-    priority: t.priority,
+-    description: t.description,
+-  }));
+-
+-  const raw = await callGemini('prioritize', JSON.stringify(summaries));
+-  return parseJSONResponse(raw);
+-}
+-
+-/**
+- * Ask the AI to suggest a daily schedule.
+- * @param {Array} tasks
+- * @returns {Promise<Array<{taskId: string, suggestedTime: string, duration: number, reason: string}>|null>}
+- */
+-export async function suggestSchedule(tasks) {
+-  const summaries = tasks
+-    .filter((t) => !t.completed)
+-    .map((t) => ({
+-      id: t.id,
+-      title: t.title,
+-      deadline: t.deadline,
+-      priority: t.priority,
+-      priorityScore: t.priorityScore,
+-    }));
+-
+-  const message = `Current time: ${new Date().toLocaleTimeString()}\nTasks:\n${JSON.stringify(summaries)}`;
+-
+-  const raw = await callGemini('schedule', message);
+-  return parseJSONResponse(raw);
+-}
+-
+-/**
+- * Chat with the AI productivity coach.
+- * @param {string} message - User message.
+- * @param {Array} chatHistory - Previous chat messages for context.
+- * @param {Array} tasks - Current task list for context.
+- * @returns {Promise<string|null>}
+- */
+-export async function chatWithCoach(message, chatHistory = [], tasks = []) {
+-  const taskSummary = tasks.slice(0, 10).map((t) => ({
+-    title: t.title,
+-    priority: t.priority,
+-    deadline: t.deadline,
+-    completed: t.completed,
+-  }));
+-
+-  const contextParts = [];
+-  if (chatHistory.length > 0) {
+-    const recent = chatHistory.slice(-6);
+-    contextParts.push(
+-      'Recent conversation:\n' +
+-        recent.map((m) => `${m.role}: ${m.content}`).join('\n'),
+-    );
+-  }
+-  if (taskSummary.length > 0) {
+-    contextParts.push(`User's tasks:\n${JSON.stringify(taskSummary)}`);
+-  }
+-
+-  const fullMessage = contextParts.length
+-    ? `${contextParts.join('\n\n')}\n\nUser: ${message}`
+-    : message;
+-
+-  return callGemini('coach', fullMessage);
+-}
+-
+-/**
+- * Get a daily productivity insight based on stats.
+- * @param {{total: number, completed: number, overdue: number, completionRate: number, todayCompleted: number, streak: number}} stats
+- * @returns {Promise<string|null>}
+- */
+-export async function getDailyInsight(stats) {
+-  const message = `Here are the user's task stats:\n${JSON.stringify(stats)}`;
+-  return callGemini('dailySummary', message);
+-}
+
+commit ab0c2439577db2f65229efa549ab64b7ea61b5f1
+Author: Ganesh Sarode <ganeshsarode3015@gmail.com>
+Date:   Tue Jun 23 18:26:25 2026 +0530
+
+    Initial commit: LEO The Last-Minute Life Saver
+
+diff --git a/src/lib/gemini.js b/src/lib/gemini.js
+new file mode 100644
+index 0000000..9cc6914
+--- /dev/null
++++ b/src/lib/gemini.js
+@@ -0,0 +1,204 @@
++/**
++ * Gemini AI client for the Last-Minute Life Saver app.
++ *
++ * Each helper builds a request payload with the appropriate system prompt
++ * and forwards it to the Next.js API route `/api/gemini`.
++ *
++ * All public functions are async and return `null` on failure so the UI
++ * can degrade gracefully when AI is unavailable.
++ */
++
++// ---------------------------------------------------------------------------
++// System prompts
++// ---------------------------------------------------------------------------
++
++export const SYSTEM_PROMPTS = {
++  breakdown:
++    'You are a task breakdown specialist. Given a task title and optional description, break it into 3-7 actionable subtasks. Return JSON array: [{"title": "subtask", "estimatedMinutes": number}]. Only return the JSON, no markdown.',
++
++  prioritize:
++    'You are a productivity expert. Given a list of tasks with their deadlines and descriptions, rank them by urgency and importance. Return JSON array of task IDs in order of priority with brief reasoning: [{"id": "...", "reason": "..."}]. Only return JSON.',
++
++  schedule:
++    'You are a daily planner. Given tasks and the current time, create an optimal schedule. Consider task priority, deadlines, and energy levels (morning=high focus, afternoon=moderate, evening=low). Return JSON: [{"taskId": "...", "suggestedTime": "HH:MM", "duration": minutes, "reason": "..."}]. Only return JSON.',
++
++  coach:
++    'You are LEO, an AI productivity coach inside "The Last-Minute Life Saver" app. You help users manage tasks, overcome procrastination, and boost productivity. You have access to their task list. Be encouraging, practical, and concise. Use emojis sparingly. If they share their tasks context, reference specific tasks by name.',
++
++  nudge:
++    'Generate a brief, motivational productivity nudge (1-2 sentences). Be specific and actionable, not generic. Return only the text.',
++
++  dailySummary:
++    'Given the user task stats, generate a brief personalized daily insight (2-3 sentences). Mention specific numbers. Be encouraging but honest. Return only the text.',
++};
++
++// ---------------------------------------------------------------------------
++// Core API call
++// ---------------------------------------------------------------------------
++
++/**
++ * Call the internal Gemini API route.
++ *
++ * @param {keyof SYSTEM_PROMPTS} action - Which system prompt to use.
++ * @param {string} userMessage - The user-facing message / payload.
++ * @param {object|null} taskContext - Optional task context to include.
++ * @returns {Promise<string|null>} Raw response text or null on failure.
++ */
++export async function callGemini(action, userMessage, taskContext = null) {
++  try {
++    const res = await fetch('/api/gemini', {
++      method: 'POST',
++      headers: { 'Content-Type': 'application/json' },
++      body: JSON.stringify({
++        action,
++        message: userMessage,
++        taskContext,
++      }),
++    });
++
++    if (!res.ok) {
++      console.error(`Gemini API error: ${res.status}`);
++      return null;
++    }
++
++    const data = await res.json();
++    return data?.reply ?? data?.text ?? null;
++  } catch (err) {
++    console.error('Gemini API call failed:', err);
++    return null;
++  }
++}
++
++// ---------------------------------------------------------------------------
++// JSON response parser
++// ---------------------------------------------------------------------------
++
++/**
++ * Safely parse a JSON response from the AI.
++ * Handles responses wrapped in markdown code blocks (```json ΓÇª ```).
++ *
++ * @param {string} text
++ * @returns {any|null} Parsed value or null on failure.
++ */
++export function parseJSONResponse(text) {
++  if (!text) return null;
++
++  try {
++    // Strip optional markdown fences
++    let cleaned = text.trim();
++
++    // Remove ```json ΓÇª ``` or ``` ΓÇª ```
++    const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
++    if (fenceMatch) {
++      cleaned = fenceMatch[1].trim();
++    }
++
++    return JSON.parse(cleaned);
++  } catch {
++    console.warn('Failed to parse JSON response from AI:', text);
++    return null;
++  }
++}
++
++// ---------------------------------------------------------------------------
++// High-level helpers
++// ---------------------------------------------------------------------------
++
++/**
++ * Break a task into subtasks.
++ * @param {string} title
++ * @param {string} [description='']
++ * @returns {Promise<Array<{title: string, estimatedMinutes: number}>|null>}
++ */
++export async function breakdownTask(title, description = '') {
++  const message = description
++    ? `Task: ${title}\nDescription: ${description}`
++    : `Task: ${title}`;
++
++  const raw = await callGemini('breakdown', message);
++  return parseJSONResponse(raw);
++}
++
++/**
++ * Ask the AI to prioritise a set of tasks.
++ * @param {Array} tasks
++ * @returns {Promise<Array<{id: string, reason: string}>|null>}
++ */
++export async function prioritizeTasks(tasks) {
++  const summaries = tasks.map((t) => ({
++    id: t.id,
++    title: t.title,
++    deadline: t.deadline,
++    priority: t.priority,
++    description: t.description,
++  }));
++
++  const raw = await callGemini('prioritize', JSON.stringify(summaries));
++  return parseJSONResponse(raw);
++}
++
++/**
++ * Ask the AI to suggest a daily schedule.
++ * @param {Array} tasks
++ * @returns {Promise<Array<{taskId: string, suggestedTime: string, duration: number, reason: string}>|null>}
++ */
++export async function suggestSchedule(tasks) {
++  const summaries = tasks
++    .filter((t) => !t.completed)
++    .map((t) => ({
++      id: t.id,
++      title: t.title,
++      deadline: t.deadline,
++      priority: t.priority,
++      priorityScore: t.priorityScore,
++    }));
++
++  const message = `Current time: ${new Date().toLocaleTimeString()}\nTasks:\n${JSON.stringify(summaries)}`;
++
++  const raw = await callGemini('schedule', message);
++  return parseJSONResponse(raw);
++}
++
++/**
++ * Chat with the AI productivity coach.
++ * @param {string} message - User message.
++ * @param {Array} chatHistory - Previous chat messages for context.
++ * @param {Array} tasks - Current task list for context.
++ * @returns {Promise<string|null>}
++ */
++export async function chatWithCoach(message, chatHistory = [], tasks = []) {
++  const taskSummary = tasks.slice(0, 10).map((t) => ({
++    title: t.title,
++    priority: t.priority,
++    deadline: t.deadline,
++    completed: t.completed,
++  }));
++
++  const contextParts = [];
++  if (chatHistory.length > 0) {
++    const recent = chatHistory.slice(-6);
++    contextParts.push(
++      'Recent conversation:\n' +
++        recent.map((m) => `${m.role}: ${m.content}`).join('\n'),
++    );
++  }
++  if (taskSummary.length > 0) {
++    contextParts.push(`User's tasks:\n${JSON.stringify(taskSummary)}`);
++  }
++
++  const fullMessage = contextParts.length
++    ? `${contextParts.join('\n\n')}\n\nUser: ${message}`
++    : message;
++
++  return callGemini('coach', fullMessage);
++}
++
++/**
++ * Get a daily productivity insight based on stats.
++ * @param {{total: number, completed: number, overdue: number, completionRate: number, todayCompleted: number, streak: number}} stats
++ * @returns {Promise<string|null>}
++ */
++export async function getDailyInsight(stats) {
++  const message = `Here are the user's task stats:\n${JSON.stringify(stats)}`;
++  return callGemini('dailySummary', message);
++}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { addTask, updateTask } from '@/lib/firebase';
-import { askGemini } from '@/lib/gemini';
+import { askGemini, askGeminiRaw } from '@/lib/gemini';
 import { Mic, MicOff } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -90,14 +90,9 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
       setFormData(prev => ({...prev, title: transcript}));
       
       try {
-        const res = await fetch('/api/ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: `Voice input: "${transcript}"\nToday: ${format(new Date(), 'yyyy-MM-dd')}\nExtract task title and deadline if mentioned.\nRespond ONLY with JSON: {"title":"...","deadline":"YYYY-MM-DD","hasDeadline":true}\nIf no deadline: {"title":"...","deadline":null,"hasDeadline":false}`
-          })
-        });
-        const data = await res.json();
+        const data = await askGeminiRaw(
+          `Voice input: "${transcript}"\nToday: ${format(new Date(), 'yyyy-MM-dd')}\nExtract task title and deadline if mentioned.\nRespond ONLY with JSON: {"title":"...","deadline":"YYYY-MM-DD","hasDeadline":true}\nIf no deadline: {"title":"...","deadline":null,"hasDeadline":false}`
+        );
         const p = JSON.parse(data.text.replace(/```json|```/g,'').trim());
         if (p.title) setFormData(prev => ({...prev, title: p.title}));
         if (p.hasDeadline && p.deadline) {
@@ -131,12 +126,7 @@ Respond ONLY with a JSON array:
 ]
 4-6 sub-tasks. Titles under 8 words. Specific to this actual task.`;
 
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptStr })
-      });
-      const data = await res.json();
+      const data = await askGeminiRaw(promptStr);
       
       let generatedSubtasks = [];
       try {

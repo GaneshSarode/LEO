@@ -20,12 +20,15 @@ export default function Dashboard({ onNavigate, userProfile }) {
   const [planning, setPlanning] = useState(false);
   const [dayPlan, setDayPlan] = useState(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(true);
   const briefingFetched = useRef(false);
   const weeklyFetched = useRef(false);
 
   const fetchTasks = async () => {
+    setLoadingTasks(true);
     const data = await getTasks();
     setTasks(data);
+    setLoadingTasks(false);
   };
 
   useEffect(() => {
@@ -251,7 +254,7 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
       {/* Quick Add Bar with Voice */}
       <div style={{ marginTop: 'auto', display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
         {/* Empty State Popup (First Task Prompt) */}
-        {tasks.length === 0 && (
+        {!loadingTasks && tasks.length === 0 && (
           <div 
             onClick={() => setShowModal(true)}
             style={{

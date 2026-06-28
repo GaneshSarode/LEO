@@ -18,9 +18,11 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
   const [aiReasoning, setAiReasoning] = useState('');
   const [urgentBanner, setUrgentBanner] = useState('');
   const [dismissedBanner, setDismissedBanner] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(true);
   const bannerFetched = useRef(false);
 
   const fetchTasks = async () => {
+    setLoadingTasks(true);
     const data = await getTasks();
     // Attach live priority scores
     const scored = data.map(t => ({
@@ -28,6 +30,7 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
       priorityScore: calculatePriorityScore(t)
     }));
     setTasks(scored);
+    setLoadingTasks(false);
   };
 
   useEffect(() => {
@@ -190,7 +193,11 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
       </div>
 
       <div>
-        {filteredTasks.length === 0 ? (
+        {loadingTasks ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+            <span style={{ color: 'var(--text-secondary)', animation: 'pulse 1.5s infinite' }}>Loading tasks...</span>
+          </div>
+        ) : filteredTasks.length === 0 ? (
           <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '40px' }}>No tasks found.</p>
         ) : (
           filteredTasks.map(task => (
@@ -217,7 +224,7 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
       </button>
 
       {/* Empty State Popup (First Task Prompt) */}
-      {tasks.length === 0 && (
+      {!loadingTasks && tasks.length === 0 && (
         <div 
           onClick={() => { setEditTaskData(null); setShowModal(true); }}
           style={{

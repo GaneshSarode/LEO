@@ -162,6 +162,18 @@ export default function FocusTimer({ task, onClose, onComplete }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
+  // Detect clicks inside the Spotify iframe to auto-mute ambient sounds
+  useEffect(() => {
+    const handleBlur = () => {
+      if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
+        // User interacted with Spotify iframe, turn off ambient sound
+        setAmbientSound('none');
+      }
+    };
+    window.addEventListener('blur', handleBlur);
+    return () => window.removeEventListener('blur', handleBlur);
+  }, []);
+
   const currentSession = Math.min(completedPomodoros + 1, TOTAL_SESSIONS);
 
   return (

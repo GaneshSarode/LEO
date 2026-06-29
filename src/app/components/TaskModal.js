@@ -237,9 +237,10 @@ Respond ONLY with a JSON array:
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex',
-      justifyContent: 'center', alignItems: 'center', zIndex: 1000
+      justifyContent: 'center', alignItems: 'center', zIndex: 1000,
+      padding: '16px'
     }}>
-      <div className="card" style={{ width: '100%', maxWidth: '480px' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto' }}>
         <h2 className="font-heading" style={{ marginBottom: '16px' }}>
           {editTask ? 'Edit Task' : 'New Task'}
         </h2>

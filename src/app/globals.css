@@ -204,6 +204,15 @@ a, button, input, select, textarea {
   }
 }
 
+.page-container {
+  padding: 32px;
+}
+@media (max-width: 768px) {
+  .page-container {
+    padding: 16px !important;
+  }
+}
+
 @media (max-width: 480px) {
   main {
     padding-left: 0 !important;

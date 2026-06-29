@@ -120,7 +120,7 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
   });
 
   return (
-    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', position: 'relative', minHeight: '100%' }}>
+    <div className="page-container" style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', minHeight: '100%' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
         <div className="task-search-row" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <input 

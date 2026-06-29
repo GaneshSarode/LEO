@@ -163,7 +163,7 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div style={{ padding: '32px', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px', minHeight: '100%' }}>
+    <div className="page-container" style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px', minHeight: '100%' }}>
       <header>
         <h1 className="font-heading" style={{ fontSize: '32px', marginBottom: '8px' }}>{greeting}, {userProfile?.name || 'User'}</h1>
         <p className="font-heading" style={{ color: 'var(--text-secondary)', fontSize: '18px' }}>

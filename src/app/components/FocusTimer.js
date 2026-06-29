@@ -16,6 +16,8 @@ export default function FocusTimer({ task, onClose, onComplete }) {
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
   const [flashVisible, setFlashVisible] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Ready to focus?');
+  const [ambientSound, setAmbientSound] = useState('none');
+  const [isSoundPlaying, setIsSoundPlaying] = useState(false);
   const intervalRef = useRef(null);
 
   const totalDuration = phase === 'break' ? BREAK_DURATION : WORK_DURATION;
@@ -47,6 +49,7 @@ export default function FocusTimer({ task, onClose, onComplete }) {
     setPhase('working');
     setSecondsLeft(WORK_DURATION);
     setIsPaused(false);
+    setIsSoundPlaying(true);
     setStatusMessage('Stay focused!');
   }, [clearTimer]);
 
@@ -55,6 +58,7 @@ export default function FocusTimer({ task, onClose, onComplete }) {
     setPhase('break');
     setSecondsLeft(BREAK_DURATION);
     setIsPaused(false);
+    setIsSoundPlaying(true);
     setStatusMessage('Time for a break!');
   }, [clearTimer]);
 
@@ -68,6 +72,7 @@ export default function FocusTimer({ task, onClose, onComplete }) {
     if (newCount >= TOTAL_SESSIONS) {
       setPhase('idle');
       setSecondsLeft(WORK_DURATION);
+      setIsSoundPlaying(false);
       setStatusMessage('All sessions complete! Great work! 🎉');
     } else {
       startBreakSession();
@@ -79,6 +84,7 @@ export default function FocusTimer({ task, onClose, onComplete }) {
     setStatusMessage('Ready for another round?');
     setPhase('idle');
     setSecondsLeft(WORK_DURATION);
+    setIsSoundPlaying(false);
   }, [clearTimer]);
 
   // Tick effect
@@ -112,7 +118,10 @@ export default function FocusTimer({ task, onClose, onComplete }) {
   };
 
   const handlePauseResume = () => {
-    setIsPaused((prev) => !prev);
+    setIsPaused((prev) => {
+      setIsSoundPlaying(prev);
+      return !prev;
+    });
     setStatusMessage(isPaused ? (phase === 'break' ? 'Enjoy your break!' : 'Stay focused!') : 'Paused');
   };
 
@@ -125,6 +134,7 @@ export default function FocusTimer({ task, onClose, onComplete }) {
     setPhase('idle');
     setSecondsLeft(WORK_DURATION);
     setIsPaused(false);
+    setIsSoundPlaying(false);
     setStatusMessage('Session ended. Ready when you are.');
   };
 
@@ -481,6 +491,46 @@ export default function FocusTimer({ task, onClose, onComplete }) {
             </>
           )}
         </div>
+        
+        {/* Ambient Sounds */}
+        <div style={{ marginTop: '8px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Ambient Sound</label>
+          <select 
+            value={ambientSound} 
+            onChange={(e) => setAmbientSound(e.target.value)}
+            style={{ 
+              padding: '8px 12px', 
+              borderRadius: '8px', 
+              border: '1px solid var(--border)', 
+              background: 'var(--bg-primary)', 
+              color: 'var(--text-primary)',
+              fontSize: '14px',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="none">🔇 None</option>
+            <option value="lofi">🎧 Lo-fi Beats</option>
+            <option value="rain">🌧️ Rain Sounds</option>
+            <option value="coffee">☕ Coffee Shop</option>
+          </select>
+        </div>
+
+        {/* Hidden YouTube Iframe for Audio */}
+        {ambientSound !== 'none' && isSoundPlaying && (
+          <iframe 
+            width="0" 
+            height="0" 
+            src={`https://www.youtube.com/embed/${
+              ambientSound === 'lofi' ? 'jfKfPfyJRdk?autoplay=1&loop=1&playlist=jfKfPfyJRdk' :
+              ambientSound === 'rain' ? 'mPZkdNFkNps?autoplay=1&loop=1&playlist=mPZkdNFkNps' :
+              'BOroqz-a9o4?autoplay=1&loop=1&playlist=BOroqz-a9o4'
+            }`} 
+            frameBorder="0" 
+            allow="autoplay" 
+            style={{ display: 'none' }}
+          ></iframe>
+        )}
       </div>
     </div>
   );

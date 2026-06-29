@@ -21,6 +21,8 @@ export default function Dashboard({ onNavigate, userProfile }) {
   const [dayPlan, setDayPlan] = useState(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const fileInputRef = useRef(null);
   const briefingFetched = useRef(false);
   const weeklyFetched = useRef(false);
 
@@ -106,6 +108,54 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
       setDayPlan(null);
     }
     setPlanning(false);
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setUploadingPdf(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Pdf = reader.result.split(',')[1];
+        
+        const response = await fetch('/api/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            base64Pdf,
+            prompt: "Extract all assignments, exams, and deliverables from this syllabus. Return a JSON array of tasks containing exactly 'title' (string) and 'deadline' (timestamp in milliseconds, assuming current academic year if no year is provided). Do not include any other markdown."
+          })
+        });
+        
+        const data = await response.json();
+        if (data.tasks && Array.isArray(data.tasks)) {
+          const { addTask } = await import('@/lib/firebase');
+          for (const task of data.tasks) {
+            await addTask({
+              title: task.title,
+              category: 'study',
+              priority: 'high',
+              deadline: task.deadline,
+              completed: false,
+              subtasks: []
+            });
+          }
+          await fetchTasks();
+          alert(`Successfully extracted and added ${data.tasks.length} tasks from syllabus!`);
+        } else {
+          throw new Error('Failed to parse tasks from PDF.');
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error(error);
+      alert('Error parsing syllabus. Please try again.');
+    } finally {
+      setUploadingPdf(false);
+      e.target.value = '';
+    }
   };
 
   // Greeting based on time of day
@@ -290,6 +340,27 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
         />
         <VoiceButton onTranscript={(text) => setQuickAddTitle(text)} />
         <button className="btn-primary" onClick={() => quickAddTitle.trim() !== '' ? setShowModal(true) : setShowModal(true)}>Add Task</button>
+        <div style={{ position: 'relative' }}>
+          <input 
+            type="file" 
+            accept="application/pdf" 
+            style={{ display: 'none' }} 
+            ref={fileInputRef} 
+            onChange={handleFileUpload}
+          />
+          <button 
+            className="btn-ghost" 
+            style={{ padding: '16px', borderRadius: '8px', border: '1px dashed var(--accent-primary)', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingPdf}
+          >
+            {uploadingPdf ? (
+              <span style={{ animation: 'pulse 1s infinite' }}>Extracting...</span>
+            ) : (
+              '📄 Upload Syllabus'
+            )}
+          </button>
+        </div>
       </div>
 
       <TaskModal 

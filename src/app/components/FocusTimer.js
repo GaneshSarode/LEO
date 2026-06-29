@@ -514,7 +514,7 @@ export default function FocusTimer({ task, onClose, onComplete }) {
             <option value="rain">🌧️ Rain Sounds</option>
             <option value="coffee">☕ Coffee Shop</option>
             <option value="ocean">🌊 Ocean Waves</option>
-            <option value="storm">🌩️ Thunderstorm</option>
+            <option value="night">🌙 Night Crickets</option>
           </select>
         </div>
 
@@ -542,7 +542,7 @@ export default function FocusTimer({ task, onClose, onComplete }) {
               ambientSound === 'lofi' ? 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3' :
               ambientSound === 'rain' ? 'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg' :
               ambientSound === 'ocean' ? 'https://actions.google.com/sounds/v1/water/waves_crashing_on_rock_beach.ogg' :
-              ambientSound === 'storm' ? 'https://actions.google.com/sounds/v1/weather/afternoon_storm_long.ogg' :
+              ambientSound === 'night' ? 'https://actions.google.com/sounds/v1/ambiences/crickets_with_distant_traffic.ogg' :
               'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3'
             }
             style={{ display: 'none' }}

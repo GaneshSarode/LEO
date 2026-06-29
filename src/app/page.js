@@ -10,14 +10,37 @@ import HabitsView from './components/HabitsView';
 import ReminderEngine from './components/ReminderEngine';
 import FocusTimer from './components/FocusTimer';
 
+const MOTIVATIONAL_SLOGANS = [
+  "I am believing in you,<br/>You Can Do It!",
+  "Focus Today,<br/>Crush Tomorrow.",
+  "Small Steps Today,<br/>Big Wins Tomorrow.",
+  "Discipline Now,<br/>Freedom Later.",
+  "Less Distraction,<br/>More Action.",
+  "Don't Stop Until<br/>You're Proud.",
+  "You Don't Need More Time,<br/>You Need More Focus.",
+  "Be Stronger Than<br/>Your Excuses.",
+  "Energy Flows Where<br/>Attention Goes.",
+  "Track It. Improve It.<br/>Own It.",
+  "You vs You,<br/>Every Single Day.",
+  "Plan Your Day,<br/>Design Your Future.",
+  "Progress, Not<br/>Perfection.",
+  "Work in Silence,<br/>Let Success Make Noise.",
+  "One Goal.<br/>One LEO Mindset.",
+  "Rest Today,<br/>Reset Tomorrow.",
+  "Think Smart,<br/>Execute Better.",
+  "No More Procrastination,<br/>Only Action."
+];
+
 export default function Home() {
   const [activeView, setActiveView] = useState('dashboard');
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [focusTask, setFocusTask] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [slogan, setSlogan] = useState(MOTIVATIONAL_SLOGANS[0]);
 
   useEffect(() => {
+    setSlogan(MOTIVATIONAL_SLOGANS[Math.floor(Math.random() * MOTIVATIONAL_SLOGANS.length)]);
     const profile = localStorage.getItem('leo_user_profile');
     if (profile) {
       try {
@@ -178,7 +201,7 @@ export default function Home() {
             fontWeight: 500,
             animation: 'pulse 4s infinite'
           }}>
-            "I am believing in you,<br/>You Can Do It!"
+            <div dangerouslySetInnerHTML={{ __html: `"${slogan}"` }} />
             <div style={{
               position: 'absolute',
               bottom: '-6px',

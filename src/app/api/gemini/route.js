@@ -62,6 +62,11 @@ export async function POST(req) {
         userMessage = `Task Title: "${payload.title}"`;
         break;
 
+      case 'raw':
+        systemPrompt = 'You are a helpful AI.';
+        userMessage = payload.prompt;
+        break;
+
       default:
         return new Response(JSON.stringify({ error: 'Invalid action' }), {
           status: 400,
@@ -117,7 +122,7 @@ export async function POST(req) {
             'Authorization': `Bearer ${groqApiKey}`,
           },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'llama-3.1-8b-instant',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: prompt },
@@ -144,7 +149,7 @@ export async function POST(req) {
     // --- FALLBACK: TRY GEMINI (1 attempt only, no retries) ---
     try {
       const geminiResponse = await fetchWithTimeout(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent`,
         {
           method: 'POST',
           headers: {

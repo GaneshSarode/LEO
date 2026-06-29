@@ -513,7 +513,24 @@ export default function FocusTimer({ task, onClose, onComplete }) {
             <option value="lofi">🎧 Lo-fi Beats</option>
             <option value="rain">🌧️ Rain Sounds</option>
             <option value="coffee">☕ Coffee Shop</option>
+            <option value="ocean">🌊 Ocean Waves</option>
+            <option value="storm">🌩️ Thunderstorm</option>
           </select>
+        </div>
+
+        {/* Spotify Web Player Embed */}
+        <div style={{ marginTop: '24px', width: '100%', maxWidth: '300px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', textAlign: 'center', marginBottom: '8px' }}>Or Study with Spotify</label>
+          <iframe 
+            style={{ borderRadius: '12px' }} 
+            src="https://open.spotify.com/embed/playlist/37i9dQZF1DWWQRwui0ExPn?utm_source=generator&theme=0" 
+            width="100%" 
+            height="152" 
+            frameBorder="0" 
+            allowFullScreen="" 
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+            loading="lazy"
+          ></iframe>
         </div>
 
         {/* Hidden Audio Player for Ambience */}
@@ -524,6 +541,8 @@ export default function FocusTimer({ task, onClose, onComplete }) {
             src={
               ambientSound === 'lofi' ? 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3' :
               ambientSound === 'rain' ? 'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg' :
+              ambientSound === 'ocean' ? 'https://actions.google.com/sounds/v1/water/waves_crashing_on_rock_beach.ogg' :
+              ambientSound === 'storm' ? 'https://actions.google.com/sounds/v1/weather/afternoon_storm_long.ogg' :
               'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3'
             }
             style={{ display: 'none' }}

@@ -161,6 +161,59 @@ export default function Home() {
           })}
         </nav>
 
+        {/* Motivation Cat */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px', padding: '0 8px' }}>
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '12px',
+            position: 'relative',
+            marginBottom: '16px',
+            fontSize: '13px',
+            color: 'var(--text-primary)',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            fontStyle: 'italic',
+            fontWeight: 500,
+            animation: 'pulse 4s infinite'
+          }}>
+            "I am believing in you,<br/>You Can Do It!"
+            <div style={{
+              position: 'absolute',
+              bottom: '-6px',
+              left: '50%',
+              transform: 'translateX(-50%) rotate(45deg)',
+              width: '12px',
+              height: '12px',
+              background: 'var(--bg-primary)',
+              borderRight: '1px solid var(--border)',
+              borderBottom: '1px solid var(--border)',
+            }} />
+          </div>
+          
+          <svg width="48" height="48" viewBox="0 0 16 16" fill="var(--text-primary)" xmlns="http://www.w3.org/2000/svg" style={{ imageRendering: 'pixelated', opacity: 0.8 }}>
+            {/* Ears */}
+            <rect x="4" y="2" width="2" height="3" />
+            <rect x="5" y="1" width="1" height="1" />
+            <rect x="10" y="2" width="2" height="3" />
+            <rect x="10" y="1" width="1" height="1" />
+            {/* Head */}
+            <rect x="3" y="4" width="10" height="5" />
+            {/* Eyes */}
+            <rect x="5" y="6" width="2" height="2" fill="var(--bg-surface)" />
+            <rect x="9" y="6" width="2" height="2" fill="var(--bg-surface)" />
+            {/* Body */}
+            <rect x="4" y="9" width="8" height="6" />
+            {/* Paws */}
+            <rect x="4" y="15" width="2" height="1" />
+            <rect x="10" y="15" width="2" height="1" />
+            {/* Tail */}
+            <rect x="12" y="11" width="1" height="4" />
+            <rect x="13" y="10" width="2" height="1" />
+          </svg>
+        </div>
+
         {/* Sidebar Footer */}
         <div style={{ marginTop: 'auto', padding: '16px 0', borderTop: '1px solid var(--border)' }}>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>

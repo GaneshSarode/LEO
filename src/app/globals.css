@@ -27,6 +27,45 @@ body {
   font-family: 'Inter', sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before, body::after {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: 
+    radial-gradient(1px 1px at 20px 30px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1.5px 1.5px at 40px 70px, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 50px 160px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(2px 2px at 90px 40px, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1.5px 1.5px at 130px 80px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(1px 1px at 160px 120px, rgba(255,255,255,0.7), transparent),
+    radial-gradient(2px 2px at 200px 200px, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 240px 10px, rgba(255,255,255,0.8), transparent);
+  background-repeat: repeat;
+  background-size: 300px 300px;
+  animation: snowFall 20s linear infinite;
+  opacity: 0.6;
+}
+
+body::after {
+  background-image: 
+    radial-gradient(1px 1px at 10px 10px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(2px 2px at 150px 150px, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1.5px 1.5px at 60px 200px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 220px 80px, rgba(255,255,255,0.7), transparent);
+  background-size: 400px 400px;
+  animation: snowFall 35s linear infinite;
+  opacity: 0.4;
+}
+
+@keyframes snowFall {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 1200px; }
 }
 
 h1, h2, h3, h4, h5, h6, .font-heading {

@@ -246,7 +246,7 @@ export default function Home() {
       </aside>
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-primary)' }}>
+      <main style={{ flex: 1, overflowY: 'auto', backgroundColor: 'transparent' }}>
         {activeView === 'dashboard' && <Dashboard onNavigate={setActiveView} userProfile={userProfile} />}
         {activeView === 'tasks' && <TaskList onFocus={(task) => setFocusTask(task)} onStuck={handleStuck} userProfile={userProfile} />}
         {activeView === 'schedule' && <ScheduleView />}

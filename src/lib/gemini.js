@@ -271,3 +271,56 @@ export async function askGeminiRaw(prompt) {
   }
   return { error: 'Failed', text: '{"title":"Fallback Task","deadline":null,"hasDeadline":false}' };
 }
+
+export async function extractPdfTasks(base64Pdf) {
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error("No API key found for PDF extraction");
+    return { error: "No API key found" };
+  }
+  const prompt = "Extract all assignments, exams, and deliverables from this syllabus. Return a JSON array of tasks containing exactly 'title' (string) and 'deadline' (timestamp in milliseconds, assuming current academic year if no year is provided). Do not include any other markdown.";
+  
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          contents: [{ 
+            role: 'user', 
+            parts: [
+              { text: prompt },
+              { inlineData: { data: base64Pdf, mimeType: "application/pdf" } }
+            ] 
+          }]
+        }),
+      }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      let geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      if (geminiText.startsWith('```json')) geminiText = geminiText.replace(/^```json\n/, '');
+      if (geminiText.startsWith('```')) geminiText = geminiText.replace(/^```\n/, '');
+      if (geminiText.endsWith('```')) geminiText = geminiText.replace(/\n```$/, '');
+
+      try {
+        return { tasks: JSON.parse(geminiText.trim()) };
+      } catch (parseErr) {
+        console.error("JSON Parse Error on Gemini Response:", geminiText);
+        return { error: "Failed to parse JSON" };
+      }
+    } else {
+      const err = await response.json();
+      console.error("Gemini API Error:", err);
+      return { error: "API returned an error" };
+    }
+  } catch (e) {
+    console.error("Client gemini fetch error", e);
+    return { error: e.message };
+  }
+}

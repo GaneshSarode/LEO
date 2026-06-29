@@ -115,21 +115,19 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
     if (!file) return;
     
     setUploadingPdf(true);
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
+    
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
         const base64Pdf = reader.result.split(',')[1];
         
-        const response = await fetch('/api/pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            base64Pdf,
-            prompt: "Extract all assignments, exams, and deliverables from this syllabus. Return a JSON array of tasks containing exactly 'title' (string) and 'deadline' (timestamp in milliseconds, assuming current academic year if no year is provided). Do not include any other markdown."
-          })
-        });
+        const { extractPdfTasks } = await import('@/lib/gemini');
+        const data = await extractPdfTasks(base64Pdf);
         
-        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
         if (data.tasks && Array.isArray(data.tasks)) {
           const { addTask } = await import('@/lib/firebase');
           for (const task of data.tasks) {
@@ -147,15 +145,15 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
         } else {
           throw new Error('Failed to parse tasks from PDF.');
         }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error(error);
-      alert('Error parsing syllabus. Please try again.');
-    } finally {
-      setUploadingPdf(false);
-      e.target.value = '';
-    }
+      } catch (error) {
+        console.error(error);
+        alert('Error parsing syllabus. Please try again.');
+      } finally {
+        setUploadingPdf(false);
+        e.target.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   // Greeting based on time of day

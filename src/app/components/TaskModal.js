@@ -377,18 +377,24 @@ Respond ONLY with a JSON array:
           <div>
             <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Deadline</label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <input 
-                type="date" 
-                value={deadlineDate}
-                onChange={(e) => setDeadlineDate(e.target.value)}
-                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
-              />
-              <input 
-                type="time" 
-                value={deadlineTime}
-                onChange={(e) => setDeadlineTime(e.target.value)}
-                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
-              />
+              <div style={{ flex: 1 }}>
+                <input 
+                  type="date" 
+                  value={deadlineDate}
+                  onChange={(e) => setDeadlineDate(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+                />
+                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Date</span>
+              </div>
+              <div style={{ flex: 1 }}>
+                <input 
+                  type="time" 
+                  value={deadlineTime}
+                  onChange={(e) => setDeadlineTime(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+                />
+                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Time</span>
+              </div>
             </div>
           </div>
           {planChecklist ? (

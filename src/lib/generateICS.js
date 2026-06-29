@@ -123,3 +123,37 @@ export function generateICSFile(task) {
     URL.revokeObjectURL(link.href);
   }, 100);
 }
+
+/**
+ * Generates a Google Calendar event URL for a given task and opens it in a new tab.
+ *
+ * @param {Object} task - The task object.
+ */
+export function generateGoogleCalendarLink(task) {
+  if (!task || !task.title || !task.deadline) {
+    console.error('generateGoogleCalendarLink: task must have title and deadline');
+    return;
+  }
+
+  const deadlineDate = task.deadline instanceof Date
+    ? task.deadline
+    : new Date(task.deadline);
+
+  if (isNaN(deadlineDate.getTime())) {
+    console.error('generateGoogleCalendarLink: invalid deadline date');
+    return;
+  }
+
+  const startDate = deadlineDate;
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour duration
+
+  const dtStart = formatICSDate(startDate);
+  const dtEnd = formatICSDate(endDate);
+  
+  const title = encodeURIComponent(task.title);
+  const details = encodeURIComponent('Category: ' + (task.category || 'General'));
+  
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dtStart}/${dtEnd}&details=${details}`;
+  
+  window.open(url, '_blank');
+}

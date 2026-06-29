@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { updateTask } from '@/lib/firebase';
 import { calculatePriorityScore } from '@/lib/taskEngine';
-import { generateICSFile } from '@/lib/generateICS';
+import { generateGoogleCalendarLink } from '@/lib/generateICS';
 import { askGemini } from '@/lib/gemini';
 import { differenceInHours } from 'date-fns';
 
@@ -189,7 +189,7 @@ export default function TaskCard({ task, onDelete, onToggleComplete, onEdit, onB
             {isBreakingDown ? '⏳ Breaking down...' : '🔨 Break it down'}
           </button>
           {task.deadline && (
-            <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => generateICSFile(task)}>
+            <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 8px' }} onClick={() => generateGoogleCalendarLink(task)}>
               📅 Add to Calendar
             </button>
           )}

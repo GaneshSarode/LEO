@@ -516,20 +516,18 @@ export default function FocusTimer({ task, onClose, onComplete }) {
           </select>
         </div>
 
-        {/* Hidden YouTube Iframe for Audio */}
+        {/* Hidden Audio Player for Ambience */}
         {ambientSound !== 'none' && isSoundPlaying && (
-          <iframe 
-            width="100" 
-            height="100" 
-            src={`https://www.youtube.com/embed/${
-              ambientSound === 'lofi' ? 'px69dMvH5eY?autoplay=1' :
-              ambientSound === 'rain' ? 'mPZkdNFkNps?autoplay=1' :
-              'e3L1PIY1oBY?autoplay=1'
-            }`} 
-            frameBorder="0" 
-            allow="autoplay; encrypted-media" 
-            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', top: '-1000px' }}
-          ></iframe>
+          <audio 
+            autoPlay 
+            loop 
+            src={
+              ambientSound === 'lofi' ? 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3' :
+              ambientSound === 'rain' ? 'https://cdn.pixabay.com/download/audio/2021/08/09/audio_dc39bde80a.mp3' :
+              'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3'
+            }
+            style={{ display: 'none' }}
+          />
         )}
       </div>
     </div>

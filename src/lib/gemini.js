@@ -223,7 +223,7 @@ export async function askGeminiRaw(prompt) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
       {
         method: 'POST',
         headers: {
@@ -282,7 +282,7 @@ export async function extractPdfTasks(base64Pdf) {
   
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
       {
         method: 'POST',
         headers: {

@@ -57,8 +57,8 @@ export default function ScheduleView() {
   }
 
   return (
-    <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+    <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className="schedule-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <h1 className="font-heading" style={{ fontSize: '28px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Calendar style={{ color: 'var(--accent-primary)' }} /> Schedule
         </h1>
@@ -72,7 +72,7 @@ export default function ScheduleView() {
         </div>
       </div>
 
-      <div style={{ 
+      <div className="schedule-grid" style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', 
         gap: '12px',

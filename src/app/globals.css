@@ -202,6 +202,14 @@ a, button, input, select, textarea {
     width: 100% !important;
     justify-content: center !important;
   }
+  .schedule-header {
+    flex-direction: column !important;
+    gap: 16px !important;
+    align-items: flex-start !important;
+  }
+  .schedule-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 .page-container {

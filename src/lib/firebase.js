@@ -12,7 +12,7 @@ import {
   getDocs,
   serverTimestamp 
 } from 'firebase/firestore';
-import { calculatePriorityScore, autoAssignPriority } from '@/lib/taskEngine';
+import { calculatePriorityScore } from '@/lib/taskEngine';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -64,10 +64,8 @@ export const addTask = async (taskData) => {
   try {
     // Auto-compute priority from taskEngine
     const priorityScore = calculatePriorityScore(taskData);
-    const priority = autoAssignPriority(taskData);
     const docRef = await addDoc(collection(db, COLLECTION_NAME), {
       ...taskData,
-      priority,
       priorityScore,
       sessionId,
       createdAt: serverTimestamp(),
@@ -85,8 +83,7 @@ export const updateTask = async (taskId, updates) => {
     // Recompute priority if task data changes
     if (updates.deadline || updates.completed !== undefined || updates.subtasks) {
       const priorityScore = calculatePriorityScore(updates);
-      const priority = autoAssignPriority(updates);
-      updates = { ...updates, priority, priorityScore };
+      updates = { ...updates, priorityScore };
     }
     const taskRef = doc(db, COLLECTION_NAME, taskId);
     await updateDoc(taskRef, updates);

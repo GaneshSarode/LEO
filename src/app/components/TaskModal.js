@@ -385,7 +385,8 @@ Respond ONLY with a JSON array:
                   min={todayString}
                   value={deadlineDate}
                   onChange={(e) => setDeadlineDate(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+                  onClick={(e) => { try { e.target.showPicker(); } catch(err) {} }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white', cursor: 'pointer' }}
                 />
                 <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Date</span>
               </div>
@@ -394,7 +395,8 @@ Respond ONLY with a JSON array:
                   type="time" 
                   value={deadlineTime}
                   onChange={(e) => setDeadlineTime(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}
+                  onClick={(e) => { try { e.target.showPicker(); } catch(err) {} }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white', cursor: 'pointer' }}
                 />
                 <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Time</span>
               </div>

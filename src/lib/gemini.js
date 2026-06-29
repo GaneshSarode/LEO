@@ -110,16 +110,12 @@ Examples:
         };
 
         let response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
           fetchPayload
         );
 
         if (!response.ok) {
-          console.log('gemini-2.5-flash failed or hit quota, trying gemini-2.5-flash-lite...');
-          response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
-            fetchPayload
-          );
+          console.log('gemini-flash-latest failed or hit quota, trying groq...');
         }
 
         if (response.ok) {
@@ -244,16 +240,12 @@ export async function askGeminiRaw(prompt) {
     };
 
     let response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
       fetchPayload
     );
 
     if (!response.ok) {
-      console.log('gemini-2.5-flash failed, trying gemini-2.5-flash-lite...');
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
-        fetchPayload
-      );
+      console.log('gemini-flash-latest failed, trying groq...');
     }
 
     if (response.ok) {
@@ -320,16 +312,12 @@ export async function extractPdfTasks(base64Pdf) {
     };
 
     let response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
       fetchPayload
     );
 
     if (!response.ok) {
-      console.log('gemini-2.5-flash failed for PDF, trying gemini-2.5-flash-lite...');
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
-        fetchPayload
-      );
+      console.log('gemini-flash-latest failed for PDF, trying groq...');
     }
 
     if (response.ok) {

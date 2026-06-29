@@ -174,7 +174,7 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
 
   return (
     <div className="page-container" style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px', minHeight: '100%' }}>
-      <header>
+      <header className="dashboard-header">
         <h1 className="font-heading" style={{ fontSize: '32px', marginBottom: '8px' }}>{greeting}, {userProfile?.name || 'User'}</h1>
         <p className="font-heading" style={{ color: 'var(--text-secondary)', fontSize: '18px' }}>
           {todayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}

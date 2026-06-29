@@ -210,6 +210,9 @@ a, button, input, select, textarea {
   .schedule-grid {
     grid-template-columns: 1fr !important;
   }
+  .dashboard-header {
+    margin-top: 48px !important;
+  }
 }
 
 .page-container {

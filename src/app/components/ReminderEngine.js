@@ -32,7 +32,7 @@ const getEscalationMessage = (task, escalation, timeDiffStr) => {
       if (timeDiffStr.includes('overdue')) return `Stop everything! "${task.title}" is ${timeDiffStr}. Complete it NOW!`;
       return `"${task.title}" is due in under an hour! Drop what you're doing and finish this.`;
     case 'high':
-      return `"${task.title}" is ${timeDiffStr}. You still have time — start working on it now.`;
+      return `Hey, your ${task.title} assignment is due soon! Let's get to work!`;
     case 'medium':
       return `"${task.title}" is ${timeDiffStr}. Plan to tackle this today.`;
     default:
@@ -43,6 +43,7 @@ const getEscalationMessage = (task, escalation, timeDiffStr) => {
 export default function ReminderEngine({ onNavigate }) {
   const [bannerItems, setBannerItems] = useState([]);
   const [dismissedIds, setDismissedIds] = useState(new Set());
+  const [permission, setPermission] = useState('default');
   const notifiedIdsRef = useRef(new Set());
   const intervalRef = useRef(null);
   const notificationsSupported = useRef(false);
@@ -50,11 +51,17 @@ export default function ReminderEngine({ onNavigate }) {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       notificationsSupported.current = true;
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
+      setPermission(Notification.permission);
     }
   }, []);
+
+  const requestNotificationPermission = () => {
+    if (notificationsSupported.current) {
+      Notification.requestPermission().then(perm => {
+        setPermission(perm);
+      });
+    }
+  };
 
   const formatTimeDiff = (deadlineMs) => {
     const now = Date.now();
@@ -146,12 +153,41 @@ export default function ReminderEngine({ onNavigate }) {
 
   const visibleItems = bannerItems.filter((item) => !dismissedIds.has(item.task.id));
 
-  if (visibleItems.length === 0) return null;
+  if (visibleItems.length === 0 && permission !== 'default') return null;
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', gap: '1px', width: '100%'
+      display: 'flex', flexDirection: 'column', gap: '8px', width: '100%'
     }}>
+      {permission === 'default' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 20px',
+          backgroundColor: 'rgba(59, 130, 246, 0.15)',
+          borderLeft: '3px solid var(--accent-blue)',
+          borderRadius: '4px'
+        }}>
+          <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+            Enable push notifications to never miss an urgent task!
+          </span>
+          <button 
+            onClick={requestNotificationPermission}
+            style={{
+              padding: '6px 12px',
+              fontSize: '12px',
+              background: 'var(--accent-blue)',
+              color: 'var(--bg-primary)',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 600
+            }}
+          >
+            Enable
+          </button>
+        </div>
+      )}
+
       {visibleItems.map((item) => {
         const { escalation } = item;
         const EscIcon = escalation.icon;
@@ -167,6 +203,7 @@ export default function ReminderEngine({ onNavigate }) {
               borderLeft: `3px solid ${escalation.color}`,
               backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
               animation: escalation.pulse ? 'reminderPulse 2s ease-in-out infinite' : 'none',
+              borderRadius: '4px'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>

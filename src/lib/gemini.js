@@ -1,16 +1,29 @@
+// Helper: fetch with a timeout so we never hang
+const fetchWithTimeout = (url, options, timeoutMs = 8000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+};
+
+const cleanMarkdown = (text) => {
+  if (text.startsWith('```json')) text = text.replace(/^```json\n/, '');
+  if (text.startsWith('```')) text = text.replace(/^```\n/, '');
+  if (text.endsWith('```')) text = text.replace(/\n```$/, '');
+  return text;
+};
+
 export async function askGemini(action, payload) {
   try {
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     
-    // If we DO NOT have a public API key (e.g., on Vercel where only GEMINI_API_KEY is set),
-    // we fallback to the secure server API route.
+    // If no public key, use the server route
     if (!apiKey) {
-      console.log('No NEXT_PUBLIC_GEMINI_API_KEY found. Falling back to server route /api/gemini...');
-      const res = await fetch('/api/gemini', {
+      const res = await fetchWithTimeout('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, payload })
-      });
+      }, 12000);
       if (!res.ok) throw new Error('API route failed');
       return await res.json();
     }
@@ -76,15 +89,11 @@ Examples:
 
     const prompt = userMessage;
 
-    const parseAndRespond = (text) => {
-      if (text.startsWith('```json')) text = text.replace(/^```json\n/, '');
-      if (text.startsWith('```')) text = text.replace(/^```\n/, '');
-      if (text.endsWith('```')) text = text.replace(/\n```$/, '');
-
+    const parseResponse = (text) => {
+      text = cleanMarkdown(text);
       if (action !== 'coach' && action !== 'briefing') {
         try {
-          const parsed = JSON.parse(text);
-          return parsed;
+          return JSON.parse(text);
         } catch (e) {
           return { result: text };
         }
@@ -92,13 +101,11 @@ Examples:
       return { result: text };
     };
 
-    let finalResult = null;
-    let fallbackToGemini = true;
-
+    // --- TRY GROQ FIRST (fast) ---
     const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
     if (groqApiKey) {
       try {
-        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const groqResponse = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -119,70 +126,43 @@ Examples:
           const groqData = await groqResponse.json();
           const groqText = groqData.choices?.[0]?.message?.content || '';
           if (groqText) {
-            console.log('Groq succeeded.');
-            return parseAndRespond(groqText);
+            return parseResponse(groqText);
           }
-        } else {
-          const groqErr = await groqResponse.text().catch(() => '');
-          console.error(`Groq API error (${groqResponse.status}): ${groqErr}`);
         }
-      } catch (groqFetchErr) {
-        console.error('Groq fetch error:', groqFetchErr.message);
+      } catch (e) {
+        console.error('Groq error:', e.message);
       }
     }
 
-    if (fallbackToGemini) {
-      console.log('Groq failed or not configured. Falling back to Gemini...');
-      const maxRetries = 1;
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          const fetchPayload = {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': apiKey,
-            },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: prompt }] }],
-              systemInstruction: { parts: [{ text: systemPrompt }] },
-            }),
-          };
+    // --- FALLBACK: GEMINI (1 attempt, 8s timeout) ---
+    try {
+      const response = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+          }),
+        }
+      );
 
-          let response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
-            fetchPayload
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            if (geminiText) {
-              return parseAndRespond(geminiText);
-            }
-            break;
-          }
-
-          const errData = await response.json().catch(() => ({}));
-          const isRetryable = response.status === 503 || response.status === 429 ||
-                              (errData.error?.message && errData.error.message.toLowerCase().includes('high demand'));
-
-          if (!isRetryable) break;
-
-          if (attempt < maxRetries) {
-            console.log(`Gemini API retryable error. Retrying... (${attempt + 1}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, 700));
-          }
-        } catch (fetchErr) {
-          console.log(`Gemini fetch error: ${fetchErr.message}`);
-          if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 700));
-          }
+      if (response.ok) {
+        const data = await response.json();
+        const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (geminiText) {
+          return parseResponse(geminiText);
         }
       }
+    } catch (e) {
+      console.error('Gemini error:', e.message);
     }
 
-    console.log('Both Gemini and Groq failed. Using canned fallback.');
-
+    // --- BOTH FAILED ---
     if (action === 'breakdown' || action === 'autonomous_plan') {
       return [
         { id: "1", title: "Research and plan the task", completed: false },
@@ -212,11 +192,11 @@ export async function askGeminiRaw(prompt) {
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   if (!apiKey) {
     try {
-      const res = await fetch('/api/ai', {
+      const res = await fetchWithTimeout('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
-      });
+      }, 12000);
       return await res.json();
     } catch (e) {
       console.error('Server AI fallback failed', e);
@@ -224,12 +204,11 @@ export async function askGeminiRaw(prompt) {
     }
   }
 
-  let fallbackToGemini = true;
-
+  // --- TRY GROQ FIRST ---
   const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
   if (groqApiKey) {
     try {
-      const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const groqResponse = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -245,16 +224,18 @@ export async function askGeminiRaw(prompt) {
       if (groqResponse.ok) {
         const groqData = await groqResponse.json();
         const groqText = groqData.choices?.[0]?.message?.content || '';
-        return { text: groqText };
+        if (groqText) return { text: groqText };
       }
     } catch (e) {
-      console.error("Client groq fetch error", e);
+      console.error("Groq raw error:", e.message);
     }
   }
 
-  if (fallbackToGemini) {
-    try {
-      const fetchPayload = {
+  // --- FALLBACK: GEMINI ---
+  try {
+    const response = await fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,22 +244,18 @@ export async function askGeminiRaw(prompt) {
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }]
         }),
-      };
-
-      let response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
-        fetchPayload
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        return { text: geminiText };
       }
-    } catch (e) {
-      console.error("Client gemini fetch error", e);
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return { text: geminiText };
     }
+  } catch (e) {
+    console.error("Gemini raw error:", e.message);
   }
+
   return { error: 'Failed', text: '{"title":"Fallback Task","deadline":null,"hasDeadline":false}' };
 }
 
@@ -291,39 +268,31 @@ export async function extractPdfTasks(base64Pdf) {
   const prompt = "Extract all assignments, exams, and deliverables from this syllabus. Return a JSON object with exactly two keys: 'mainTitle' (a short, descriptive string representing the course name or syllabus title) and 'tasks' (a JSON array of tasks containing exactly 'title' (string) and 'deadline' (timestamp in milliseconds, assuming current academic year if no year is provided)). Do not include any other markdown.";
   
   try {
-    const fetchPayload = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ 
-          role: 'user', 
-          parts: [
-            { text: prompt },
-            { inlineData: { data: base64Pdf, mimeType: "application/pdf" } }
-          ] 
-        }]
-      }),
-    };
-
-    let response = await fetch(
+    const response = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
-      fetchPayload
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          contents: [{ 
+            role: 'user', 
+            parts: [
+              { text: prompt },
+              { inlineData: { data: base64Pdf, mimeType: "application/pdf" } }
+            ] 
+          }]
+        }),
+      },
+      15000 // PDFs need more time
     );
-
-    if (!response.ok) {
-      console.log('gemini-flash-latest failed for PDF, trying groq...');
-    }
 
     if (response.ok) {
       const data = await response.json();
       let geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      
-      if (geminiText.startsWith('```json')) geminiText = geminiText.replace(/^```json\n/, '');
-      if (geminiText.startsWith('```')) geminiText = geminiText.replace(/^```\n/, '');
-      if (geminiText.endsWith('```')) geminiText = geminiText.replace(/\n```$/, '');
+      geminiText = cleanMarkdown(geminiText);
 
       try {
         return JSON.parse(geminiText.trim());
@@ -332,12 +301,12 @@ export async function extractPdfTasks(base64Pdf) {
         return { error: "Failed to parse JSON" };
       }
     } else {
-      const err = await response.json();
+      const err = await response.json().catch(() => ({}));
       console.error("Gemini API Error:", err);
       return { error: "API returned an error" };
     }
   } catch (e) {
-    console.error("Client gemini fetch error", e);
+    console.error("PDF extraction error:", e.message);
     return { error: e.message };
   }
 }

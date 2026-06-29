@@ -278,7 +278,7 @@ export async function extractPdfTasks(base64Pdf) {
     console.error("No API key found for PDF extraction");
     return { error: "No API key found" };
   }
-  const prompt = "Extract all assignments, exams, and deliverables from this syllabus. Return a JSON array of tasks containing exactly 'title' (string) and 'deadline' (timestamp in milliseconds, assuming current academic year if no year is provided). Do not include any other markdown.";
+  const prompt = "Extract all assignments, exams, and deliverables from this syllabus. Return a JSON object with exactly two keys: 'mainTitle' (a short, descriptive string representing the course name or syllabus title) and 'tasks' (a JSON array of tasks containing exactly 'title' (string) and 'deadline' (timestamp in milliseconds, assuming current academic year if no year is provided)). Do not include any other markdown.";
   
   try {
     const response = await fetch(

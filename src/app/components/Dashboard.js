@@ -128,20 +128,32 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
           throw new Error(data.error);
         }
         
-        if (data.tasks && Array.isArray(data.tasks)) {
+        if (data.mainTitle && data.tasks && Array.isArray(data.tasks)) {
           const { addTask } = await import('@/lib/firebase');
-          for (const task of data.tasks) {
-            await addTask({
-              title: task.title,
-              category: 'study',
-              priority: 'high',
-              deadline: task.deadline,
-              completed: false,
-              subtasks: []
-            });
+          
+          const generatedSubtasks = data.tasks.map((task, idx) => ({
+            id: `sub_${Date.now()}_${idx}`,
+            title: task.title + (task.deadline ? ` (Due: ${new Date(task.deadline).toLocaleDateString()})` : ''),
+            completed: false
+          }));
+
+          let earliestDeadline = null;
+          const validDeadlines = data.tasks.map(t => t.deadline).filter(d => d !== null && d !== undefined && !isNaN(d));
+          if (validDeadlines.length > 0) {
+            earliestDeadline = Math.min(...validDeadlines);
           }
+
+          await addTask({
+            title: data.mainTitle,
+            category: 'study',
+            priority: 'high',
+            deadline: earliestDeadline,
+            completed: false,
+            subtasks: generatedSubtasks
+          });
+
           await fetchTasks();
-          alert(`Successfully extracted and added ${data.tasks.length} tasks from syllabus!`);
+          alert(`Successfully extracted "${data.mainTitle}" with ${data.tasks.length} subtasks!`);
         } else {
           throw new Error('Failed to parse tasks from PDF.');
         }

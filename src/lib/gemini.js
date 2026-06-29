@@ -222,19 +222,30 @@ export async function askGeminiRaw(prompt) {
   }
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }]
-        }),
-      }
+    const fetchPayload = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      }),
+    };
+
+    let response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+      fetchPayload
     );
+
+    if (!response.ok) {
+      console.log('gemini-2.5-flash failed, trying gemini-2.5-flash-lite...');
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
+        fetchPayload
+      );
+    }
+
     if (response.ok) {
       const data = await response.json();
       const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -281,25 +292,36 @@ export async function extractPdfTasks(base64Pdf) {
   const prompt = "Extract all assignments, exams, and deliverables from this syllabus. Return a JSON object with exactly two keys: 'mainTitle' (a short, descriptive string representing the course name or syllabus title) and 'tasks' (a JSON array of tasks containing exactly 'title' (string) and 'deadline' (timestamp in milliseconds, assuming current academic year if no year is provided)). Do not include any other markdown.";
   
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{ 
-            role: 'user', 
-            parts: [
-              { text: prompt },
-              { inlineData: { data: base64Pdf, mimeType: "application/pdf" } }
-            ] 
-          }]
-        }),
-      }
+    const fetchPayload = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        contents: [{ 
+          role: 'user', 
+          parts: [
+            { text: prompt },
+            { inlineData: { data: base64Pdf, mimeType: "application/pdf" } }
+          ] 
+        }]
+      }),
+    };
+
+    let response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+      fetchPayload
     );
+
+    if (!response.ok) {
+      console.log('gemini-2.5-flash failed for PDF, trying gemini-2.5-flash-lite...');
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
+        fetchPayload
+      );
+    }
+
     if (response.ok) {
       const data = await response.json();
       let geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';

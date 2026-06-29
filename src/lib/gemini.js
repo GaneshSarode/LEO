@@ -309,7 +309,7 @@ export async function extractPdfTasks(base64Pdf) {
       if (geminiText.endsWith('```')) geminiText = geminiText.replace(/\n```$/, '');
 
       try {
-        return { tasks: JSON.parse(geminiText.trim()) };
+        return JSON.parse(geminiText.trim());
       } catch (parseErr) {
         console.error("JSON Parse Error on Gemini Response:", geminiText);
         return { error: "Failed to parse JSON" };

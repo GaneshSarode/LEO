@@ -96,61 +96,6 @@ export async function POST(req) {
       });
     };
 
-    let geminiText = null;
-    const maxRetries = 1;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const fetchPayload = {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-          }),
-        };
-
-        let response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
-          fetchPayload
-        );
-
-        if (!response.ok) {
-          console.log('gemini-flash-latest failed or hit quota, trying groq...');
-        }
-
-        if (response.ok) {
-          const data = await response.json();
-          geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          break;
-        }
-
-        const errData = await response.json().catch(() => ({}));
-        const isRetryable = response.status === 503 || response.status === 429 ||
-                            (errData.error?.message && errData.error.message.toLowerCase().includes('high demand'));
-
-        if (!isRetryable) break;
-
-        if (attempt < maxRetries) {
-          console.log(`Gemini API retryable error. Retrying... (${attempt + 1}/${maxRetries})`);
-          await new Promise(resolve => setTimeout(resolve, 700));
-        }
-      } catch (fetchErr) {
-        console.log(`Gemini fetch error: ${fetchErr.message}`);
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 700));
-        }
-      }
-    }
-
-    if (geminiText) {
-      return parseAndRespond(geminiText);
-    }
-
-    console.log('Gemini failed. Falling back to Groq...');
     const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY || process.env.GROQ_API_KEY;
 
     if (groqApiKey) {
@@ -176,18 +121,63 @@ export async function POST(req) {
           const groqData = await groqResponse.json();
           const groqText = groqData.choices?.[0]?.message?.content || '';
           if (groqText) {
-            console.log('Groq fallback succeeded.');
+            console.log('Groq succeeded.');
             return parseAndRespond(groqText);
           }
         } else {
-          const groqErr = await groqResponse.text().catch(() => '');
-          console.error(`Groq API error (${groqResponse.status}): ${groqErr}`);
+          console.error(`Groq API error (${groqResponse.status})`);
         }
       } catch (groqFetchErr) {
         console.error('Groq fetch error:', groqFetchErr.message);
       }
-    } else {
-      console.log('GROQ_API_KEY not set, skipping Groq fallback.');
+    }
+
+    let geminiText = null;
+    const maxRetries = 1;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const fetchPayload = {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+          }),
+        };
+
+        let response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
+          fetchPayload
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          break;
+        }
+
+        const errData = await response.json().catch(() => ({}));
+        const isRetryable = response.status === 503 || response.status === 429 ||
+                            (errData.error?.message && errData.error.message.toLowerCase().includes('high demand'));
+
+        if (!isRetryable) break;
+
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 700));
+        }
+      } catch (fetchErr) {
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 700));
+        }
+      }
+    }
+
+    if (geminiText) {
+      return NextResponse.json(parseAndRespond(geminiText));
     }
 
     console.log('Both Gemini and Groq failed. Using canned fallback.');

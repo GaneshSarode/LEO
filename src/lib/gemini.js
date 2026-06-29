@@ -92,63 +92,10 @@ Examples:
       return { result: text };
     };
 
-    let geminiText = null;
-    const maxRetries = 1;
+    let finalResult = null;
+    let fallbackToGemini = true;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const fetchPayload = {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-          }),
-        };
-
-        let response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
-          fetchPayload
-        );
-
-        if (!response.ok) {
-          console.log('gemini-flash-latest failed or hit quota, trying groq...');
-        }
-
-        if (response.ok) {
-          const data = await response.json();
-          geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          break;
-        }
-
-        const errData = await response.json().catch(() => ({}));
-        const isRetryable = response.status === 503 || response.status === 429 ||
-                            (errData.error?.message && errData.error.message.toLowerCase().includes('high demand'));
-
-        if (!isRetryable) break;
-
-        if (attempt < maxRetries) {
-          console.log(`Gemini API retryable error. Retrying... (${attempt + 1}/${maxRetries})`);
-          await new Promise(resolve => setTimeout(resolve, 700));
-        }
-      } catch (fetchErr) {
-        console.log(`Gemini fetch error: ${fetchErr.message}`);
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 700));
-        }
-      }
-    }
-
-    if (geminiText) {
-      return parseAndRespond(geminiText);
-    }
-
-    console.log('Gemini failed. Falling back to Groq...');
     const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
-
     if (groqApiKey) {
       try {
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -172,7 +119,7 @@ Examples:
           const groqData = await groqResponse.json();
           const groqText = groqData.choices?.[0]?.message?.content || '';
           if (groqText) {
-            console.log('Groq fallback succeeded.');
+            console.log('Groq succeeded.');
             return parseAndRespond(groqText);
           }
         } else {
@@ -181,6 +128,56 @@ Examples:
         }
       } catch (groqFetchErr) {
         console.error('Groq fetch error:', groqFetchErr.message);
+      }
+    }
+
+    if (fallbackToGemini) {
+      console.log('Groq failed or not configured. Falling back to Gemini...');
+      const maxRetries = 1;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const fetchPayload = {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+            }),
+          };
+
+          let response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
+            fetchPayload
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (geminiText) {
+              return parseAndRespond(geminiText);
+            }
+            break;
+          }
+
+          const errData = await response.json().catch(() => ({}));
+          const isRetryable = response.status === 503 || response.status === 429 ||
+                              (errData.error?.message && errData.error.message.toLowerCase().includes('high demand'));
+
+          if (!isRetryable) break;
+
+          if (attempt < maxRetries) {
+            console.log(`Gemini API retryable error. Retrying... (${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, 700));
+          }
+        } catch (fetchErr) {
+          console.log(`Gemini fetch error: ${fetchErr.message}`);
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 700));
+          }
+        }
       }
     }
 
@@ -227,35 +224,7 @@ export async function askGeminiRaw(prompt) {
     }
   }
 
-  try {
-    const fetchPayload = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-      }),
-    };
-
-    let response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
-      fetchPayload
-    );
-
-    if (!response.ok) {
-      console.log('gemini-flash-latest failed, trying groq...');
-    }
-
-    if (response.ok) {
-      const data = await response.json();
-      const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      return { text: geminiText };
-    }
-  } catch (e) {
-    console.error("Client gemini fetch error", e);
-  }
+  let fallbackToGemini = true;
 
   const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
   if (groqApiKey) {
@@ -280,6 +249,34 @@ export async function askGeminiRaw(prompt) {
       }
     } catch (e) {
       console.error("Client groq fetch error", e);
+    }
+  }
+
+  if (fallbackToGemini) {
+    try {
+      const fetchPayload = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        }),
+      };
+
+      let response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`,
+        fetchPayload
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        return { text: geminiText };
+      }
+    } catch (e) {
+      console.error("Client gemini fetch error", e);
     }
   }
   return { error: 'Failed', text: '{"title":"Fallback Task","deadline":null,"hasDeadline":false}' };

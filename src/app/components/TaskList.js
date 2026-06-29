@@ -215,6 +215,30 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
         )}
       </div>
 
+      {/* Priority Info Card */}
+      {!loadingTasks && tasks.length > 0 && (
+        <div style={{
+          marginTop: '40px',
+          padding: '20px',
+          borderRadius: '8px',
+          backgroundColor: 'var(--bg-elevated)',
+          borderLeft: '4px solid var(--accent-primary)',
+          color: 'var(--text-secondary)',
+          fontSize: '13px',
+          lineHeight: '1.6'
+        }}>
+          <h4 style={{ color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
+            ℹ️ How LEO sorts your tasks
+          </h4>
+          <p style={{ margin: 0 }}>
+            Your tasks are sorted automatically using a dynamic priority score (0-100) based on three factors:
+            <br/>• <strong style={{ color: 'var(--text-primary)' }}>Deadline (50%)</strong>: Closer deadlines get higher scores. Overdue tasks are pinned to the top.
+            <br/>• <strong style={{ color: 'var(--text-primary)' }}>Manual Priority (40%)</strong>: Critical {'>'} High {'>'} Medium {'>'} Low.
+            <br/>• <strong style={{ color: 'var(--text-primary)' }}>Subtasks (10%)</strong>: Tasks with fewer completed subtasks score higher because they require more work.
+          </p>
+        </div>
+      )}
+
       <button 
         className="btn-primary"
         onClick={() => { setEditTaskData(null); setShowModal(true); }}

@@ -523,7 +523,7 @@ export default function FocusTimer({ task, onClose, onComplete }) {
             loop 
             src={
               ambientSound === 'lofi' ? 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3' :
-              ambientSound === 'rain' ? 'https://cdn.pixabay.com/download/audio/2021/08/09/audio_dc39bde80a.mp3' :
+              ambientSound === 'rain' ? 'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg' :
               'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3'
             }
             style={{ display: 'none' }}

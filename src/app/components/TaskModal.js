@@ -22,6 +22,8 @@ export default function TaskModal({ show, onClose, onSave, editTask, initialTitl
   const [listening, setListening] = useState(false);
   const [planChecklist, setPlanChecklist] = useState(null);
 
+  const todayString = format(new Date(), 'yyyy-MM-dd');
+
   useEffect(() => {
     if (editTask) {
       setFormData({
@@ -380,6 +382,7 @@ Respond ONLY with a JSON array:
               <div style={{ flex: 1 }}>
                 <input 
                   type="date" 
+                  min={todayString}
                   value={deadlineDate}
                   onChange={(e) => setDeadlineDate(e.target.value)}
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'white' }}

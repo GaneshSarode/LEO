@@ -188,7 +188,7 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
       </div>
 
       {/* Stats Row — 4 cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
         <div className="card" style={{ textAlign: 'center' }}>
           <h3 className="font-heading" style={{ fontSize: '36px', color: 'var(--accent-primary)', marginBottom: '4px' }}>{dueTodayCount}</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Due Today</p>
@@ -221,7 +221,7 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
       )}
 
       {/* Plan My Day Button */}
-      <div style={{ display: 'flex', gap: '12px' }}>
+      <div className="action-buttons-row" style={{ display: 'flex', gap: '12px' }}>
         <button 
           className="btn-primary" 
           style={{ flex: 1, padding: '14px', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
@@ -302,7 +302,7 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
       </section>
 
       {/* Quick Add Bar with Voice */}
-      <div style={{ marginTop: 'auto', display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
+      <div className="quick-add-bar" style={{ marginTop: 'auto', display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
         {/* Empty State Popup (First Task Prompt) */}
         {!loadingTasks && tasks.length === 0 && (
           <div 

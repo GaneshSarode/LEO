@@ -172,9 +172,35 @@ a, button, input, select, textarea {
     transform: translateX(0) !important;
   }
 
-  /* Stack stats grid on mobile */
+/* Stack stats grid on mobile */
   .card {
     min-width: 0;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .progress-chart-container {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 24px !important;
+  }
+  .action-buttons-row {
+    flex-direction: column !important;
+  }
+  .quick-add-bar {
+    flex-wrap: wrap !important;
+  }
+  .quick-add-bar input {
+    width: 100% !important;
+    flex: none !important;
+  }
+  .task-search-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .task-search-row button {
+    width: 100% !important;
+    justify-content: center !important;
   }
 }
 
@@ -182,6 +208,9 @@ a, button, input, select, textarea {
   main {
     padding-left: 0 !important;
     padding-right: 0 !important;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 

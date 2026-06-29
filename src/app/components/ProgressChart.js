@@ -101,6 +101,7 @@ export default function ProgressChart({ tasks = [] }) {
 
       {/* Content row */}
       <div
+        className="progress-chart-container"
         style={{
           display: 'flex',
           flexDirection: 'row',

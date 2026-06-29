@@ -39,7 +39,13 @@ export async function POST(req) {
 
       case 'briefing':
         systemPrompt = `You are LEO, a proactive productivity coach. The user is a ${payload.userProfile?.role || 'user'}. Review their tasks and provide a short (2-3 sentences max) daily briefing. Start by saying 'Good morning ${payload.userProfile?.name || 'there'}!' or similar. State exactly what they should focus on first based on deadlines. Keep it highly actionable and direct. NEVER mention task IDs or internal database references.`;
-        const safeTasks = payload.tasks ? payload.tasks.map(t => ({ title: t.title, deadline: t.deadline, priority: t.priority })) : [];
+        const safeTasks = payload.tasks ? payload.tasks.map(t => {
+          let readableDeadline = 'No deadline';
+          if (t.deadline) {
+            readableDeadline = new Date(t.deadline).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+          }
+          return { title: t.title, deadline: readableDeadline, priority: t.priority };
+        }) : [];
         userMessage = `Tasks: ${JSON.stringify(safeTasks)}`;
         break;
 

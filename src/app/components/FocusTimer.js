@@ -18,7 +18,20 @@ export default function FocusTimer({ task, onClose, onComplete }) {
   const [statusMessage, setStatusMessage] = useState('Ready to focus?');
   const [ambientSound, setAmbientSound] = useState('none');
   const [isSoundPlaying, setIsSoundPlaying] = useState(false);
+  const [spotifyUrl, setSpotifyUrl] = useState("https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn");
   const intervalRef = useRef(null);
+
+  const getSpotifyEmbedUrl = (url) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname === 'open.spotify.com') {
+        const path = parsed.pathname;
+        return `https://open.spotify.com/embed${path}?utm_source=generator&theme=0`;
+      }
+    } catch(e) {}
+    if (url.includes('/embed/')) return url;
+    return "https://open.spotify.com/embed/playlist/37i9dQZF1DWWQRwui0ExPn?utm_source=generator&theme=0";
+  };
 
   const totalDuration = phase === 'break' ? BREAK_DURATION : WORK_DURATION;
   const progress = 1 - secondsLeft / totalDuration;
@@ -216,6 +229,8 @@ export default function FocusTimer({ task, onClose, onComplete }) {
           flexDirection: 'column',
           alignItems: 'center',
           gap: '24px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
           animation: 'focusTimerFadeIn 300ms ease-out',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -521,9 +536,26 @@ export default function FocusTimer({ task, onClose, onComplete }) {
         {/* Spotify Web Player Embed */}
         <div style={{ marginTop: '24px', width: '100%', maxWidth: '300px' }}>
           <label style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', textAlign: 'center', marginBottom: '8px' }}>Or Study with Spotify</label>
+          <input 
+            type="text" 
+            placeholder="Paste Spotify Link (e.g., Playlist, Album)" 
+            value={spotifyUrl}
+            onChange={(e) => setSpotifyUrl(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '8px 12px', 
+              borderRadius: '8px', 
+              border: '1px solid var(--border)', 
+              background: 'var(--bg-primary)', 
+              color: 'var(--text-primary)',
+              fontSize: '12px',
+              outline: 'none',
+              marginBottom: '12px'
+            }}
+          />
           <iframe 
             style={{ borderRadius: '12px' }} 
-            src="https://open.spotify.com/embed/playlist/37i9dQZF1DWWQRwui0ExPn?utm_source=generator&theme=0" 
+            src={getSpotifyEmbedUrl(spotifyUrl)} 
             width="100%" 
             height="152" 
             frameBorder="0" 

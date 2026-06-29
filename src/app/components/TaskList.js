@@ -29,7 +29,7 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
       ...t,
       priorityScore: calculatePriorityScore(t)
     }));
-    setTasks(scored);
+    setTasks(sortByPriority(scored));
     setLoadingTasks(false);
   };
 
@@ -231,9 +231,10 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
             ℹ️ How LEO sorts your tasks
           </h4>
           <p style={{ margin: 0 }}>
-            Your tasks are sorted automatically using a dynamic priority score (0-100) based on three factors:
-            <br/>• <strong style={{ color: 'var(--text-primary)' }}>Deadline (50%)</strong>: Closer deadlines get higher scores. Overdue tasks are pinned to the top.
-            <br/>• <strong style={{ color: 'var(--text-primary)' }}>Manual Priority (40%)</strong>: Critical {'>'} High {'>'} Medium {'>'} Low.
+            Your tasks are sorted automatically using a dynamic priority score (0-100) based on four factors:
+            <br/>• <strong style={{ color: 'var(--text-primary)' }}>Deadline (40%)</strong>: Closer deadlines get higher scores. Overdue tasks are pinned to the top.
+            <br/>• <strong style={{ color: 'var(--text-primary)' }}>Manual Priority (30%)</strong>: Critical {'>'} High {'>'} Medium {'>'} Low.
+            <br/>• <strong style={{ color: 'var(--text-primary)' }}>Completion Status (20%)</strong>: Completed tasks drop to the bottom.
             <br/>• <strong style={{ color: 'var(--text-primary)' }}>Subtasks (10%)</strong>: Tasks with fewer completed subtasks score higher because they require more work.
           </p>
         </div>

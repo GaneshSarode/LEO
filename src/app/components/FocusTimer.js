@@ -522,9 +522,9 @@ export default function FocusTimer({ task, onClose, onComplete }) {
             width="100" 
             height="100" 
             src={`https://www.youtube.com/embed/${
-              ambientSound === 'lofi' ? '5qap5aO4i9A?autoplay=1' :
+              ambientSound === 'lofi' ? 'px69dMvH5eY?autoplay=1' :
               ambientSound === 'rain' ? 'mPZkdNFkNps?autoplay=1' :
-              'BOroqz-a9o4?autoplay=1'
+              'e3L1PIY1oBY?autoplay=1'
             }`} 
             frameBorder="0" 
             allow="autoplay; encrypted-media" 

@@ -36,8 +36,15 @@ export async function askGemini(action, payload) {
         break;
 
       case 'coach':
-        systemPrompt = 'You are LEO, a friendly, agentic AI productivity companion. Your goal is to help the user execute tasks before deadlines. Given the user message and their current tasks context, provide concise, actionable, and conversational advice.';
-        userMessage = `User Message: ${payload.message}\nContext Tasks: ${JSON.stringify(payload.tasks)}`;
+        systemPrompt = 'You are LEO, a friendly, agentic AI productivity companion. Your goal is to help the user execute tasks before deadlines. Given the user message and their current tasks context, provide concise, actionable, and conversational advice. NEVER mention task IDs or internal database references.';
+        const coachTasks = payload.tasks ? payload.tasks.map(t => {
+          let readableDeadline = 'No deadline';
+          if (t.deadline) {
+            readableDeadline = new Date(t.deadline).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+          }
+          return { title: t.title, deadline: readableDeadline, priority: t.priority };
+        }) : [];
+        userMessage = `User Message: ${payload.message}\nContext Tasks: ${JSON.stringify(coachTasks)}`;
         break;
 
       case 'briefing':

@@ -6,7 +6,7 @@
 
 > **An aggressive, AI-powered productivity companion that helps you plan, prioritize, execute, and complete commitments before deadlines are missed.**
 
-**Live Demo:** [https://leo-hackathon-69667.web.app/](https://leo-hackathon-69667.web.app/)
+**Live Link:** [https://leo-hackathon-69667.web.app/](https://leo-hackathon-69667.web.app/)
 
 ## Problem Statement
 

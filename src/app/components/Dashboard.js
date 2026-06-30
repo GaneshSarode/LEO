@@ -84,6 +84,7 @@ export default function Dashboard({ onNavigate, userProfile }) {
   const [showPlanSettings, setShowPlanSettings] = useState(false);
   const [wakeTime, setWakeTime] = useState('08:00');
   const [sleepTime, setSleepTime] = useState('23:00');
+  const [specialInstructions, setSpecialInstructions] = useState('');
 
   const startPlanMyDay = () => {
     setShowPlanSettings(true);
@@ -98,18 +99,21 @@ export default function Dashboard({ onNavigate, userProfile }) {
     ).join('\n');
 
     const currentTime = format(new Date(), 'h:mm a');
+    const instructionsText = specialInstructions.trim() ? `\nUSER SPECIFIC INSTRUCTIONS:\n"${specialInstructions}"\n(You MUST heavily prioritize fulfilling these specific instructions in your schedule.)\n` : '';
 
     const data = await askGeminiRaw(`Today is ${format(new Date(), 'EEEE, MMMM d, yyyy')}.
 The current time is ${currentTime}. I woke up at ${wakeTime} and plan to sleep at ${sleepTime}.
 Tasks:
 ${taskList}
-
+${instructionsText}
 Build a realistic time-blocked plan for TODAY ONLY. 
-IMPORTANT: The plan MUST start from the current time (${currentTime}) and stretch continuously until my sleep time (${sleepTime}). 
-Create as many blocks as needed to fill this ENTIRE time window. Include breaks for meals and rest. Do not schedule anything in the past.
-Respond ONLY with JSON array:
+IMPORTANT: You are calculating durations. The plan MUST stretch continuously from right now until my sleep time. 
+DO NOT RETURN START TIMES. ONLY RETURN "durationMinutes" (an integer) for each block.
+Create as many blocks as needed to fill the ENTIRE time window from now until sleep. Include breaks for meals and rest.
+Respond ONLY with a JSON array:
 [
-  {"time":"10:30 AM","duration":"45 min","task":"Leetcode 20 questions","tip":"Start with easy problems"},
+  {"durationMinutes": 45, "task": "Leetcode 20 questions", "tip": "Start with easy problems"},
+  {"durationMinutes": 15, "task": "Break", "tip": "Stretch and drink water"},
   ...
 ]
 Only include tasks due today or urgent. Be specific.`);
@@ -117,7 +121,24 @@ Only include tasks due today or urgent. Be specific.`);
     let parsed = [];
     try {
       parsed = JSON.parse(data.text.replace(/```json|```/g,'').trim());
-      setDayPlan(parsed);
+      
+      let currentMillis = Date.now();
+      const finalPlan = parsed.map(block => {
+        const start = format(new Date(currentMillis), 'h:mm a');
+        const mins = block.durationMinutes || 30;
+        const durStr = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m`.replace(' 0m', '') : `${mins} min`;
+        
+        currentMillis += (mins * 60 * 1000);
+        
+        return {
+          time: start,
+          duration: durStr,
+          task: block.task,
+          tip: block.tip
+        };
+      });
+      
+      setDayPlan(finalPlan);
     } catch {
       setDayPlan(null);
     }
@@ -409,12 +430,22 @@ Only include tasks due today or urgent. Be specific.`);
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
               />
             </div>
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>When do you plan to sleep?</label>
               <input 
                 type="time" 
                 value={sleepTime}
                 onChange={(e) => setSleepTime(e.target.value)}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
+              />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Special Instructions (Optional)</label>
+              <input 
+                type="text" 
+                placeholder="e.g. ML 6hrs, Signals 4hrs"
+                value={specialInstructions}
+                onChange={(e) => setSpecialInstructions(e.target.value)}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
               />
             </div>

@@ -103,7 +103,38 @@ Examples:
       return { result: text };
     };
 
-    // --- TRY GROQ FIRST (Fastest) ---
+    // --- TRY GEMINI FIRST (Primary Engine) ---
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (apiKey) {
+      try {
+        const response = await fetchWithTimeout(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (geminiText) {
+            return parseResponse(geminiText);
+          }
+        }
+      } catch (e) {
+        console.error('Gemini client error:', e.message);
+      }
+    }
+
+    // --- TRY GROQ FALLBACK (if Gemini fails or rate limits) ---
     const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
     if (groqApiKey) {
       try {
@@ -136,47 +167,16 @@ Examples:
       }
     }
 
-    // --- TRY GEMINI FALLBACK (if Groq fails or no key) ---
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (apiKey) {
-      try {
-        const response = await fetchWithTimeout(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': apiKey,
-            },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: prompt }] }],
-              systemInstruction: { parts: [{ text: systemPrompt }] },
-            }),
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const geminiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          if (geminiText) {
-            return parseResponse(geminiText);
-          }
-        }
-      } catch (e) {
-        console.error('Gemini client error:', e.message);
-      }
-    } else {
-      // IF NO API KEYS AT ALL, TRY SERVER ROUTE AS LAST RESORT (mostly for Vercel)
-      try {
-        const res = await fetchWithTimeout('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, payload })
-        });
-        if (res.ok) return await res.json();
-      } catch (e) {
-        console.error("Server route fallback failed", e);
-      }
+    // IF CLIENT APIS FAIL, TRY SECURE SERVER ROUTE AS LAST RESORT
+    try {
+      const res = await fetchWithTimeout('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.error("Server route fallback failed", e);
     }
 
     // --- BOTH FAILED ---
@@ -205,32 +205,7 @@ Examples:
 }
 
 export async function askGeminiRaw(prompt) {
-  const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
-  if (groqApiKey) {
-    try {
-      const groqResponse = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${groqApiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-          max_tokens: 1024,
-        }),
-      });
-      if (groqResponse.ok) {
-        const groqData = await groqResponse.json();
-        const groqText = groqData.choices?.[0]?.message?.content || '';
-        if (groqText) return { text: groqText };
-      }
-    } catch (e) {
-      console.error("Groq raw error:", e.message);
-    }
-  }
-
+  // --- TRY GEMINI FIRST (Primary Engine) ---
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   if (apiKey) {
     try {
@@ -255,6 +230,33 @@ export async function askGeminiRaw(prompt) {
       }
     } catch (e) {
       console.error("Gemini raw error:", e.message);
+    }
+  }
+
+  // --- TRY GROQ FALLBACK ---
+  const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+  if (groqApiKey) {
+    try {
+      const groqResponse = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${groqApiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 1024,
+        }),
+      });
+      if (groqResponse.ok) {
+        const groqData = await groqResponse.json();
+        const groqText = groqData.choices?.[0]?.message?.content || '';
+        if (groqText) return { text: groqText };
+      }
+    } catch (e) {
+      console.error("Groq raw error:", e.message);
     }
   }
 

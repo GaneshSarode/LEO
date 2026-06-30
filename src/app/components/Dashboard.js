@@ -99,16 +99,28 @@ export default function Dashboard({ onNavigate, userProfile }) {
     ).join('\n');
 
     const currentTime = format(new Date(), 'h:mm a');
+    
+    const now = new Date();
+    const [sleepHr, sleepMin] = sleepTime.split(':').map(Number);
+    let sleepDate = new Date(now);
+    sleepDate.setHours(sleepHr, sleepMin, 0, 0);
+    if (sleepDate < now) {
+      sleepDate.setDate(sleepDate.getDate() + 1);
+    }
+    const totalAvailableMinutes = Math.floor((sleepDate.getTime() - now.getTime()) / (1000 * 60));
+
     const instructionsText = specialInstructions.trim() ? `\nUSER SPECIFIC INSTRUCTIONS:\n"${specialInstructions}"\n(You MUST heavily prioritize fulfilling these specific instructions in your schedule.)\n` : '';
 
     const data = await askGeminiRaw(`Today is ${format(new Date(), 'EEEE, MMMM d, yyyy')}.
-The current time is ${currentTime}. I woke up at ${wakeTime} and plan to sleep at ${sleepTime}.
+The current time is ${currentTime}. I woke up at ${wakeTime} and plan to sleep at ${format(sleepDate, 'h:mm a')}.
+You have EXACTLY ${totalAvailableMinutes} minutes available to schedule between now and my sleep time.
 Tasks:
 ${taskList}
 ${instructionsText}
 Build a realistic time-blocked plan for TODAY ONLY. 
 IMPORTANT: You are calculating durations. The plan MUST stretch continuously from right now until my sleep time. 
 DO NOT RETURN START TIMES. ONLY RETURN "durationMinutes" (an integer) for each block.
+The sum of all "durationMinutes" across all blocks MUST EQUAL EXACTLY ${totalAvailableMinutes}. Do not exceed this limit!
 Create as many blocks as needed to fill the ENTIRE time window from now until sleep. Include breaks for meals and rest.
 Respond ONLY with a JSON array:
 [

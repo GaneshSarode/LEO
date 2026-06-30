@@ -105,13 +105,14 @@ Tasks:
 ${taskList}
 
 Build a realistic time-blocked plan for TODAY ONLY. 
-IMPORTANT: The plan MUST start from the current time (${currentTime}) and end by my sleep time (${sleepTime}). Do not schedule anything in the past.
+IMPORTANT: The plan MUST start from the current time (${currentTime}) and stretch continuously until my sleep time (${sleepTime}). 
+Create as many blocks as needed to fill this ENTIRE time window. Include breaks for meals and rest. Do not schedule anything in the past.
 Respond ONLY with JSON array:
 [
   {"time":"10:30 AM","duration":"45 min","task":"Leetcode 20 questions","tip":"Start with easy problems"},
   ...
 ]
-Max 6 blocks. Only include tasks due today or urgent. Be specific.`);
+Only include tasks due today or urgent. Be specific.`);
 
     let parsed = [];
     try {

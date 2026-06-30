@@ -139,6 +139,29 @@ Only include tasks due today or urgent. Be specific.`);
     try {
       parsed = JSON.parse(data.text.replace(/```json|```/g,'').trim());
       
+      let sumMinutes = parsed.reduce((acc, curr) => acc + (curr.durationMinutes || 30), 0);
+      
+      if (sumMinutes < totalAvailableMinutes) {
+        parsed.push({
+          task: "Free Time & Relaxation",
+          durationMinutes: totalAvailableMinutes - sumMinutes,
+          tip: "Wind down, reflect on the day, and prepare for bed."
+        });
+      } else if (sumMinutes > totalAvailableMinutes) {
+        // Shrink from the end if AI generated too much time
+        let excess = sumMinutes - totalAvailableMinutes;
+        for (let i = parsed.length - 1; i >= 0 && excess > 0; i--) {
+          if (parsed[i].durationMinutes > excess) {
+            parsed[i].durationMinutes -= excess;
+            excess = 0;
+          } else {
+            excess -= parsed[i].durationMinutes;
+            parsed[i].durationMinutes = 0;
+          }
+        }
+        parsed = parsed.filter(b => b.durationMinutes > 0);
+      }
+
       let currentMillis = wakeDate.getTime();
       const finalPlan = parsed.map(block => {
         const start = format(new Date(currentMillis), 'h:mm a');
@@ -153,6 +176,14 @@ Only include tasks due today or urgent. Be specific.`);
           task: block.task,
           tip: block.tip
         };
+      });
+      
+      // Explicitly append the exact Sleep block at the very end
+      finalPlan.push({
+        time: format(sleepDate, 'h:mm a'),
+        duration: "0 min",
+        task: "Sleep",
+        tip: "Get a good night's rest!"
       });
       
       setDayPlan(finalPlan);

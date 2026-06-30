@@ -7,6 +7,7 @@ import { askGemini, askGeminiRaw } from '@/lib/gemini';
 import { differenceInHours } from 'date-fns';
 import TaskCard from './TaskCard';
 import TaskModal from './TaskModal';
+import FeatureGuide from './FeatureGuide';
 
 export default function TaskList({ onFocus, onStuck, userProfile }) {
   const [tasks, setTasks] = useState([]);
@@ -283,6 +284,8 @@ export default function TaskList({ onFocus, onStuck, userProfile }) {
           </p>
         </div>
       )}
+
+      <FeatureGuide type="tasks" />
 
       <TaskModal 
         show={showModal} 

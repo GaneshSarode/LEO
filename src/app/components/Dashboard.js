@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import TaskModal from './TaskModal';
 import VoiceButton from './VoiceButton';
 import ProgressChart from './ProgressChart';
+import FeatureGuide from './FeatureGuide';
 
 export default function Dashboard({ onNavigate, userProfile }) {
   const [tasks, setTasks] = useState([]);
@@ -455,6 +456,8 @@ Only include tasks due today or urgent. Be specific.`);
           </button>
         </div>
       </div>
+
+      <FeatureGuide type="dashboard" />
 
       <TaskModal 
         show={showModal} 

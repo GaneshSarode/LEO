@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getTasks } from '@/lib/firebase';
 import { askGemini } from '@/lib/gemini';
 import VoiceButton from './VoiceButton';
+import FeatureGuide from './FeatureGuide';
 
 export default function AIChat({ userProfile }) {
   const [messages, setMessages] = useState([]);

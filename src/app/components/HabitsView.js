@@ -6,6 +6,7 @@ import { subDays, format, isSameDay } from 'date-fns';
 import { askGeminiRaw } from '@/lib/gemini';
 import { Flame, Plus, Check, BarChart2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import FeatureGuide from './FeatureGuide';
 
 export default function HabitsView({ userProfile }) {
   const [habits, setHabits] = useState([]);
@@ -298,6 +299,8 @@ Write 2 sentences: performance review + one specific tip. Under 40 words. Be dir
           </div>
         </div>
       )}
+
+      <FeatureGuide type="habits" />
     </div>
   );
 }

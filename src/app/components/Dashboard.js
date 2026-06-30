@@ -81,24 +81,37 @@ export default function Dashboard({ onNavigate, userProfile }) {
     return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const planMyDay = async () => {
+  const [showPlanSettings, setShowPlanSettings] = useState(false);
+  const [wakeTime, setWakeTime] = useState('08:00');
+  const [sleepTime, setSleepTime] = useState('23:00');
+
+  const startPlanMyDay = () => {
+    setShowPlanSettings(true);
+  };
+
+  const generatePlan = async () => {
+    setShowPlanSettings(false);
     setPlanning(true);
     setShowPlanModal(true);
     const taskList = tasks.filter(t => !t.completed).map(t =>
       `- "${t.title}" due ${t.deadline ? new Date(t.deadline).toLocaleDateString() : 'none'}, priority: ${t.priority || 'normal'}`
     ).join('\n');
 
+    const currentTime = format(new Date(), 'h:mm a');
+
     const data = await askGeminiRaw(`Today is ${format(new Date(), 'EEEE, MMMM d, yyyy')}.
+The current time is ${currentTime}. I woke up at ${wakeTime} and plan to sleep at ${sleepTime}.
 Tasks:
 ${taskList}
 
-Build a realistic time-blocked plan for TODAY only.
+Build a realistic time-blocked plan for TODAY ONLY. 
+IMPORTANT: The plan MUST start from the current time (${currentTime}) and end by my sleep time (${sleepTime}). Do not schedule anything in the past.
 Respond ONLY with JSON array:
 [
-  {"time":"9:00 AM","duration":"45 min","task":"Leetcode 20 questions","tip":"Start with easy problems"},
+  {"time":"10:30 AM","duration":"45 min","task":"Leetcode 20 questions","tip":"Start with easy problems"},
   ...
 ]
-Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
+Max 6 blocks. Only include tasks due today or urgent. Be specific.`);
 
     let parsed = [];
     try {
@@ -235,7 +248,7 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
         <button 
           className="btn-primary" 
           style={{ flex: 1, padding: '14px', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-          onClick={planMyDay}
+          onClick={startPlanMyDay}
         >
           📋 Plan My Day
         </button>
@@ -380,6 +393,37 @@ Max 5 blocks. Only include tasks due today or urgent. Be specific.`);
         editTask={null}
         initialTitle={quickAddTitle}
       />
+
+      {/* Plan Settings Modal */}
+      {showPlanSettings && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
+            <h2 className="font-heading" style={{ margin: '0 0 16px 0', fontSize: '20px' }}>Configure Your Day</h2>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>When did you wake up?</label>
+              <input 
+                type="time" 
+                value={wakeTime}
+                onChange={(e) => setWakeTime(e.target.value)}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
+              />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>When do you plan to sleep?</label>
+              <input 
+                type="time" 
+                value={sleepTime}
+                onChange={(e) => setSleepTime(e.target.value)}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'white' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button className="btn-ghost" onClick={() => setShowPlanSettings(false)}>Cancel</button>
+              <button className="btn-primary" onClick={generatePlan}>Generate Plan</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Plan My Day Modal */}
       {showPlanModal && (

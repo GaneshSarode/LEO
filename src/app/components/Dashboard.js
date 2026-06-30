@@ -98,30 +98,35 @@ export default function Dashboard({ onNavigate, userProfile }) {
       `- "${t.title}" due ${t.deadline ? new Date(t.deadline).toLocaleDateString() : 'none'}, priority: ${t.priority || 'normal'}`
     ).join('\n');
 
-    const currentTime = format(new Date(), 'h:mm a');
-    
     const now = new Date();
+    
+    const [wakeHr, wakeMin] = wakeTime.split(':').map(Number);
+    let wakeDate = new Date(now);
+    wakeDate.setHours(wakeHr, wakeMin, 0, 0);
+    const startTimeString = format(wakeDate, 'h:mm a');
+
     const [sleepHr, sleepMin] = sleepTime.split(':').map(Number);
     let sleepDate = new Date(now);
     sleepDate.setHours(sleepHr, sleepMin, 0, 0);
-    if (sleepDate < now) {
+    
+    if (sleepDate <= wakeDate) {
       sleepDate.setDate(sleepDate.getDate() + 1);
     }
-    const totalAvailableMinutes = Math.floor((sleepDate.getTime() - now.getTime()) / (1000 * 60));
+    const totalAvailableMinutes = Math.floor((sleepDate.getTime() - wakeDate.getTime()) / (1000 * 60));
 
     const instructionsText = specialInstructions.trim() ? `\nUSER SPECIFIC INSTRUCTIONS:\n"${specialInstructions}"\n(You MUST heavily prioritize fulfilling these specific instructions in your schedule.)\n` : '';
 
     const data = await askGeminiRaw(`Today is ${format(new Date(), 'EEEE, MMMM d, yyyy')}.
-The current time is ${currentTime}. I woke up at ${wakeTime} and plan to sleep at ${format(sleepDate, 'h:mm a')}.
-You have EXACTLY ${totalAvailableMinutes} minutes available to schedule between now and my sleep time.
+I woke up at ${startTimeString} and plan to sleep at ${format(sleepDate, 'h:mm a')}.
+You have EXACTLY ${totalAvailableMinutes} minutes available to schedule between my wake time and my sleep time.
 Tasks:
 ${taskList}
 ${instructionsText}
 Build a realistic time-blocked plan for TODAY ONLY. 
-IMPORTANT: You are calculating durations. The plan MUST stretch continuously from right now until my sleep time. 
+IMPORTANT: You are calculating durations. The plan MUST stretch continuously from my wake time until my sleep time. 
 DO NOT RETURN START TIMES. ONLY RETURN "durationMinutes" (an integer) for each block.
 The sum of all "durationMinutes" across all blocks MUST EQUAL EXACTLY ${totalAvailableMinutes}. Do not exceed this limit!
-Create as many blocks as needed to fill the ENTIRE time window from now until sleep. Include breaks for meals and rest.
+Create as many blocks as needed to fill the ENTIRE time window from wake until sleep. Include breaks for meals and rest.
 Respond ONLY with a JSON array:
 [
   {"durationMinutes": 45, "task": "Leetcode 20 questions", "tip": "Start with easy problems"},
@@ -134,7 +139,7 @@ Only include tasks due today or urgent. Be specific.`);
     try {
       parsed = JSON.parse(data.text.replace(/```json|```/g,'').trim());
       
-      let currentMillis = Date.now();
+      let currentMillis = wakeDate.getTime();
       const finalPlan = parsed.map(block => {
         const start = format(new Date(currentMillis), 'h:mm a');
         const mins = block.durationMinutes || 30;
